@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO issues (project_id, fingerprint, title, level)\n        VALUES ($1, $2, $3, $4)\n        ON CONFLICT (project_id, fingerprint)\n        DO UPDATE SET\n            event_count = issues.event_count + 1,\n            last_seen   = NOW(),\n            status      = CASE\n                WHEN issues.status = 'resolved' THEN 'unresolved'\n                ELSE issues.status\n            END\n        RETURNING id, event_count,\n            (xmax = 0)                              AS is_new_row,\n            (xmax != 0 AND status = 'resolved')     AS is_regression\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "event_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "is_new_row",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "is_regression",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Text",
+        "Varchar"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "2f9ade6121e6e600a678be7ffba9063893875e47d32effaee82d0909b069f529"
+}

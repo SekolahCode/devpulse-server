@@ -1,0 +1,38 @@
+# =============================================================================
+# .dockerignore — Exclude files from the Docker build context
+# Keeps the context small and avoids leaking secrets
+# =============================================================================
+
+# Rust build artifacts (large — must exclude or builds will be very slow)
+target/
+
+# Node.js build artifacts
+dashboard/node_modules/
+dashboard/.vite/
+dashboard/dist/
+# The built frontend is generated inside Docker — don't copy it in
+web/
+
+# Docker compose files (not needed in the image)
+docker-compose.dev.yaml
+
+# Git history
+.git/
+.gitignore
+
+# Environment files — secrets must not leak into the image
+.env
+.env.*
+!.env.example
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docs / CI (not needed in the image)
+*.md
+.github/
+.git/

@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            COUNT(*) FILTER (WHERE status = 'unresolved')                          AS unresolved,\n            COUNT(*) FILTER (WHERE status = 'resolved')                            AS resolved,\n            COUNT(*) FILTER (WHERE status = 'ignored')                             AS ignored,\n            COUNT(*) FILTER (WHERE last_seen  > NOW() - INTERVAL '24 hours'\n                               AND status = 'unresolved')                          AS new_24h,\n            COUNT(*) FILTER (WHERE first_seen < NOW() - INTERVAL '24 hours'\n                               AND last_seen  > NOW() - INTERVAL '24 hours'\n                               AND status = 'unresolved')                          AS regressions_24h\n        FROM issues\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "unresolved",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "resolved",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "ignored",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "new_24h",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "regressions_24h",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "8a22e4884e128f8340c8fd7a1e10e60e6f3c786a4d6dd58a8507f7ec3057bbc7"
+}

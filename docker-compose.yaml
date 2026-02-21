@@ -1,0 +1,84 @@
+# =============================================================================
+# DevPulse — docker compose up -d
+# =============================================================================
+# Copy .env.example to .env and fill in your values before starting.
+#
+# To publish a pre-built image (e.g. Docker Hub):
+#   Set IMAGE=yourname/devpulse-server:latest in .env and remove the build: block.
+# =============================================================================
+
+services:
+  # ── PostgreSQL ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: devpulse
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-secret}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      # One-time init: creates the 'devpulse' app role
+      - ./docker/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d devpulse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # Do not expose 5432 to the host in production
+    # Uncomment the line below only for local debugging:
+    # ports: ["5432:5432"]
+
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ── DevPulse App ──────────────────────────────────────────────────────────
+  devpulse:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # To use a pre-built image instead of building locally, replace the
+    # build block above with: image: yourname/devpulse-server:latest
+    restart: unless-stopped
+    ports:
+      - "${SERVER_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: postgres://devpulse:${APP_DB_PASSWORD:-secret}@postgres:5432/devpulse
+      REDIS_URL: redis://redis:6379
+      SERVER_PORT: "8000"
+      RUST_LOG: ${RUST_LOG:-info}
+      # SMTP — leave blank to disable email alerts
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-devpulse@localhost}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+# ── Named volumes (data persists across restarts) ─────────────────────────────
+volumes:
+  pg_data:
+  redis_data:
