@@ -3,8 +3,8 @@
 # =============================================================================
 # Copy .env.example to .env and fill in your values before starting.
 #
-# To publish a pre-built image (e.g. Docker Hub):
-#   Set IMAGE=yourname/devpulse-server:latest in .env and remove the build: block.
+# To use the published Docker Hub image instead of building locally,
+# replace the build: block below with: image: sekolahcode/devpulse-server:latest
 # =============================================================================
 
 services:
@@ -50,8 +50,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    # To use a pre-built image instead of building locally, replace the
-    # build block above with: image: yourname/devpulse-server:latest
+    # To use the published image: replace the build block above with
+    # image: sekolahcode/devpulse-server:latest
     restart: unless-stopped
     ports:
       - "${SERVER_PORT:-8000}:8000"
