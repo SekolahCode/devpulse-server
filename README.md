@@ -26,6 +26,18 @@ docker compose up -d
 
 Open [http://localhost:8000](http://localhost:8000)
 
+`docker compose up` automatically pulls and starts three containers:
+
+| Container  | Image                                    | Purpose                        |
+|------------|------------------------------------------|--------------------------------|
+| `devpulse` | `sekolahcode/devpulse-server:latest`     | Rust app + embedded dashboard  |
+| `postgres` | `postgres:16-alpine`                     | Primary database               |
+| `redis`    | `redis:7-alpine`                         | Rate-limit counters and caching|
+
+PostgreSQL is initialised on first boot by `docker/init/01_init.sh`, which creates the `devpulse` app role and grants it access to the database. Redis requires no setup. Both are connected to the app via an internal Docker network — no external ports are exposed by default.
+
+> **Note:** If you already ran `docker compose up` with the old `build:` config and want to switch to the pre-built image, run `docker compose down` first, then `docker compose up -d`.
+
 ## Development
 
 ```bash
@@ -39,10 +51,20 @@ cargo run
 cd dashboard && npm run dev
 ```
 
-## Building
+## Building Locally
+
+The `docker-compose.yaml` uses the pre-built image from Docker Hub by default. To build from source instead, swap the `image:` line in `docker-compose.yaml` with:
+
+```yaml
+build:
+  context: .
+  dockerfile: Dockerfile
+```
+
+Then:
 
 ```bash
-# Build production Docker image
+# Requires the .sqlx/ offline cache to be committed (already done)
 docker compose build
 ```
 
