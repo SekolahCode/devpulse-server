@@ -7,7 +7,7 @@ export const useIssuesStore = defineStore("issues", {
     total:       0,
     offset:      0,
     hasMore:     false,
-    loading:     false,
+    loading:     true,
     loadingMore: false,
     stats:       null,
     live:        [],  // real-time events from WebSocket
@@ -80,7 +80,7 @@ export const useIssuesStore = defineStore("issues", {
       this.live.unshift(event);
       if (this.live.length > 20) this.live.pop();
 
-      if (event.is_new) {
+      if (event.is_new && !this.issues.some((i) => i.id === event.issue_id)) {
         this.issues.unshift({
           id:          event.issue_id,
           title:       event.title,

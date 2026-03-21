@@ -153,10 +153,22 @@ async fn main() {
         .route("/api/stats",                get(routes::stats::get_stats))
         .layer(middleware::from_fn(auth::require_admin_token));
 
-    let cors = CorsLayer::new()
-        .allow_origin(tower_http::cors::Any)
-        .allow_methods([Method::POST, Method::OPTIONS])
-        .allow_headers([header::CONTENT_TYPE]);
+    let cors = {
+        let layer = CorsLayer::new()
+            .allow_methods([Method::POST, Method::OPTIONS])
+            .allow_headers([header::CONTENT_TYPE]);
+        if let Ok(origin) = std::env::var("CORS_ORIGIN") {
+            match origin.parse::<axum::http::HeaderValue>() {
+                Ok(v)  => layer.allow_origin(v),
+                Err(_) => {
+                    tracing::warn!("CORS_ORIGIN '{}' is not a valid header value — using wildcard", origin);
+                    layer.allow_origin(tower_http::cors::Any)
+                }
+            }
+        } else {
+            layer.allow_origin(tower_http::cors::Any)
+        }
+    };
 
     let app = Router::new()
         .route("/health",               get(routes::health::health_check))

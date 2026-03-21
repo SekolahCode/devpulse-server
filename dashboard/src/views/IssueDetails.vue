@@ -219,5 +219,11 @@ function formatDate(date) {
   })
 }
 
-const fmt = (obj) => JSON.stringify(obj, null, 2)
+function fmt(obj) {
+  try {
+    return JSON.stringify(obj, null, 2)
+  } catch {
+    return String(obj)
+  }
+}
 </script>

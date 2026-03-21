@@ -44,12 +44,17 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                     Some(Ok(Message::Ping(p))) => {
                         let _ = sender.send(Message::Pong(p)).await;
                     }
-                    Some(Ok(Message::Close(_))) | None => break,
+                    Some(Ok(Message::Close(_))) => {
+                        tracing::info!("🔌 WebSocket client disconnected (clean)");
+                        break;
+                    }
+                    None => {
+                        tracing::info!("🔌 WebSocket client disconnected (connection lost)");
+                        break;
+                    }
                     _ => continue,
                 }
             }
         }
     }
-
-    tracing::info!("🔌 WebSocket client disconnected");
 }

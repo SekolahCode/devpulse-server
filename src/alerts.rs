@@ -40,7 +40,10 @@ pub async fn fire_alerts(pool: &PgPool, ctx: AlertContext) {
         event_type, ctx.project_name, ctx.level.to_uppercase(), ctx.title
     );
 
-    let http = Client::new();
+    let http = Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .unwrap_or_default();
 
     for alert in alerts {
         let channel  = alert.channel.as_deref().unwrap_or("");
