@@ -30,7 +30,14 @@ pub async fn handle_ingest(
     .await?
     .ok_or_else(|| AppError::NotFound("Invalid API key".to_string()))?;
 
-    // 3. Push to Redis queue — return immediately (fire-and-forget)
+    // 3. Basic payload validation — require at least one of exception or message
+    if payload.exception.is_none() && payload.message.is_none() {
+        return Err(AppError::BadRequest(
+            "payload must include either 'exception' or 'message'".into(),
+        ));
+    }
+
+    // 4. Push to Redis queue — return immediately (fire-and-forget)
     push_job(&state.redis_pool, EventJob {
         project_id: project.id,
         payload,
