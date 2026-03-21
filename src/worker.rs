@@ -1,19 +1,27 @@
 use crate::alerts::{fire_alerts, AlertContext};
 use deadpool_redis::Pool as RedisPool;
 use sqlx::PgPool;
+use std::sync::Arc;
 
 use crate::queue::{pop_job, EventJob};
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, Semaphore};
+
+const MAX_CONCURRENT_JOBS: usize = 64;
 
 pub async fn run(redis_pool: RedisPool, pg_pool: PgPool, event_tx: broadcast::Sender<String>) {
     tracing::info!("⚙️  Worker started — listening on queue");
 
+    let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_JOBS));
+
     loop {
         match pop_job(&redis_pool).await {
             Some(job) => {
-                let pool = pg_pool.clone();
-                let tx   = event_tx.clone();
+                let pool   = pg_pool.clone();
+                let tx     = event_tx.clone();
+                let permit = semaphore.clone().acquire_owned().await
+                    .expect("semaphore closed");
                 tokio::spawn(async move {
+                    let _permit = permit; // released when task finishes
                     if let Err(e) = process(job, &pool, &tx).await {
                         tracing::error!("Worker failed to process job: {}", e);
                     }

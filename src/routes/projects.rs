@@ -1,4 +1,5 @@
 use axum::{extract::{Path, State}, Json};
+use rand::{rngs::OsRng, RngCore};
 use serde_json::{json, Value};
 use uuid::Uuid;
 use crate::{errors::AppError, AppState};
@@ -35,8 +36,10 @@ pub async fn create_project(
 
     let platform = body["platform"].as_str().unwrap_or("php");
 
-    // Generate a unique API key
-    let api_key = Uuid::new_v4().simple().to_string();
+    // Generate a cryptographically random API key (32 hex chars = 128 bits from OsRng)
+    let mut bytes = [0u8; 16];
+    OsRng.fill_bytes(&mut bytes);
+    let api_key = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
 
     let project = sqlx::query!(
         "INSERT INTO projects (name, api_key, platform) VALUES ($1, $2, $3)

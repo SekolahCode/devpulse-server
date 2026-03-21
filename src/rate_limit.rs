@@ -23,7 +23,7 @@ impl RateLimiter {
 
     /// Returns `true` if the request is allowed, `false` if rate-limited.
     pub fn check(&self, key: &str) -> bool {
-        let mut store = self.store.lock().unwrap();
+        let mut store = self.store.lock().unwrap_or_else(|e| e.into_inner());
         let now       = Instant::now();
         let window    = self.window;
         let entry     = store.entry(key.to_string()).or_default();
