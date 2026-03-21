@@ -47,7 +47,7 @@
         <!-- DSN -->
         <div class="mt-4 flex items-center gap-2 bg-black/20 rounded-lg px-3 py-2">
           <span class="text-[10px] text-gray-500 uppercase tracking-wide font-medium shrink-0">DSN</span>
-          <code class="text-[11px] text-gray-400 truncate font-mono">/api/ingest/{{ p.api_key }}</code>
+          <code class="text-[11px] text-gray-400 truncate font-mono">{{ dsn(p.api_key) }}</code>
           <button
             @click.prevent="copy(p.api_key)"
             class="ml-auto text-gray-600 hover:text-gray-300 text-xs shrink-0 transition-colors"
@@ -130,8 +130,12 @@ async function create() {
   form.value = { name: '', platform: 'laravel' }
 }
 
+function dsn(key) {
+  return `${window.location.origin}/api/ingest/${key}`
+}
+
 function copy(key) {
-  navigator.clipboard.writeText(`/api/ingest/${key}`)
+  navigator.clipboard.writeText(dsn(key))
 }
 
 const platformIcon  = (p) => ({ laravel: '🔴', wordpress: '🔵', php: '🟣' })[p] ?? '⬜'

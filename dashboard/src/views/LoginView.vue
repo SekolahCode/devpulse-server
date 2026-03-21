@@ -15,6 +15,8 @@
       >
         <div>
           <label class="block text-xs font-medium text-gray-400 mb-1.5">Admin Token</label>
+          <!-- Hidden username field satisfies browser/password-manager accessibility requirements -->
+          <input type="text" name="username" value="admin" autocomplete="username" aria-hidden="true" style="display:none" />
           <input
             v-model="token"
             type="password"
