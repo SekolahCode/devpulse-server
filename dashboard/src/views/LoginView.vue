@@ -68,9 +68,10 @@ async function submit() {
   } catch (err) {
     if (err.response?.status === 401) {
       error.value = 'Invalid token — please check your ADMIN_TOKEN.'
-      return
+    } else {
+      error.value = 'Could not reach the server — please try again.'
     }
-    // Network error or non-401 — accept the token anyway (server might be briefly unavailable)
+    return
   }
 
   // Persist and apply

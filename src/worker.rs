@@ -74,7 +74,8 @@ async fn process(job: EventJob, pool: &PgPool, event_tx: &broadcast::Sender<Stri
     .await?;
 
     // 4. Store raw event (including environment)
-    let payload_json = serde_json::to_value(&job.payload).unwrap();
+    let payload_json = serde_json::to_value(&job.payload)
+        .map_err(|e| sqlx::Error::Protocol(e.to_string()))?;
     sqlx::query!(
         "INSERT INTO events (issue_id, project_id, payload, context, environment)
          VALUES ($1, $2, $3, $4, $5)",
