@@ -1,10 +1,5 @@
-use axum::{
-    extract::Request,
-    http::StatusCode,
-    middleware::Next,
-    response::{IntoResponse, Json, Response},
-};
-use serde_json::json;
+use axum::{extract::Request, middleware::Next, response::{IntoResponse, Response}};
+use crate::errors::AppError;
 
 /// Tower middleware — checks `Authorization: Bearer <ADMIN_TOKEN>` on every
 /// request that passes through it.  If `ADMIN_TOKEN` is not set or is empty,
@@ -13,11 +8,10 @@ pub async fn require_admin_token(request: Request, next: Next) -> Response {
     let token = match std::env::var("ADMIN_TOKEN").ok().filter(|t| !t.is_empty()) {
         Some(t) => t,
         None => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(json!({ "error": "Server is not configured with an ADMIN_TOKEN" })),
+            return AppError::Unauthorized(
+                "Server is not configured with an ADMIN_TOKEN".into(),
             )
-                .into_response();
+            .into_response();
         }
     };
 
@@ -28,10 +22,7 @@ pub async fn require_admin_token(request: Request, next: Next) -> Response {
         .and_then(|v| v.strip_prefix("Bearer "));
 
     if provided != Some(token.as_str()) {
-        return (
-            StatusCode::UNAUTHORIZED,
-            Json(json!({ "error": "Missing or invalid Authorization token" })),
-        )
+        return AppError::Unauthorized("Missing or invalid Authorization token".into())
             .into_response();
     }
 
