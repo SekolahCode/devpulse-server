@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE projects SET api_key = $1 WHERE id = $2 RETURNING id, name, api_key, platform",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "api_key",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "platform",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "f34f4f32a5c5e45898ba7aa810c2e63503a5fce6595ba30a19e3be7505420567"
+}

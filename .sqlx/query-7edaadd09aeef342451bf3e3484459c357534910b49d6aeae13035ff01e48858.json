@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS(SELECT 1 FROM ai_analyses WHERE issue_id = $1 AND analyzed_at > NOW() - INTERVAL '60 seconds')",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exists",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7edaadd09aeef342451bf3e3484459c357534910b49d6aeae13035ff01e48858"
+}

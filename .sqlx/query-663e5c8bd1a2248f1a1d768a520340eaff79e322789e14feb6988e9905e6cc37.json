@@ -1,0 +1,49 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO releases (project_id, version, ref, url)\n           VALUES ($1, $2, $3, $4)\n           ON CONFLICT (project_id, version) DO UPDATE SET\n               ref = COALESCE(EXCLUDED.ref, releases.ref),\n               url = COALESCE(EXCLUDED.url, releases.url),\n               deployed_at = NOW()\n           RETURNING id, version, ref, url, deployed_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "ref",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "deployed_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "663e5c8bd1a2248f1a1d768a520340eaff79e322789e14feb6988e9905e6cc37"
+}

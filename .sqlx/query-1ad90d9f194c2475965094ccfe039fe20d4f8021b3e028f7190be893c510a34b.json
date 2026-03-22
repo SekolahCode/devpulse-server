@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, channel, endpoint, cooldown_minutes, last_alerted_at\n        FROM alerts\n        WHERE project_id = $1 AND enabled = true\n        ",
+  "query": "UPDATE projects SET name = $1, platform = COALESCE($2, platform) WHERE id = $3\n         RETURNING id, name, api_key, platform, created_at",
   "describe": {
     "columns": [
       {
@@ -10,37 +10,39 @@
       },
       {
         "ordinal": 1,
-        "name": "channel",
+        "name": "name",
         "type_info": "Varchar"
       },
       {
         "ordinal": 2,
-        "name": "endpoint",
-        "type_info": "Text"
+        "name": "api_key",
+        "type_info": "Varchar"
       },
       {
         "ordinal": 3,
-        "name": "cooldown_minutes",
-        "type_info": "Int4"
+        "name": "platform",
+        "type_info": "Varchar"
       },
       {
         "ordinal": 4,
-        "name": "last_alerted_at",
+        "name": "created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
+        "Varchar",
+        "Varchar",
         "Uuid"
       ]
     },
     "nullable": [
       false,
-      true,
-      true,
+      false,
+      false,
       true,
       true
     ]
   },
-  "hash": "809c59c36e5863f1caccc1b2ec00b1189594e02ebf6d627308b5dc9568c60c7d"
+  "hash": "1ad90d9f194c2475965094ccfe039fe20d4f8021b3e028f7190be893c510a34b"
 }

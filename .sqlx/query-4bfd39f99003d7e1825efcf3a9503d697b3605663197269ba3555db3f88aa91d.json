@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            r.id, r.version, r.ref, r.url, r.deployed_at,\n            COUNT(i.id) FILTER (WHERE i.first_release = r.version)                                    AS new_issues,\n            COUNT(i.id) FILTER (WHERE i.last_release  = r.version AND i.status = 'unresolved')        AS open_issues,\n            COUNT(i.id) FILTER (WHERE i.last_release  = r.version AND i.status = 'resolved')          AS resolved_issues\n        FROM releases r\n        LEFT JOIN issues i ON i.project_id = r.project_id\n        WHERE r.project_id = $1\n        GROUP BY r.id, r.version, r.ref, r.url, r.deployed_at\n        ORDER BY r.deployed_at DESC\n        LIMIT 100\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "ref",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "deployed_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "new_issues",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "open_issues",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "resolved_issues",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "4bfd39f99003d7e1825efcf3a9503d697b3605663197269ba3555db3f88aa91d"
+}

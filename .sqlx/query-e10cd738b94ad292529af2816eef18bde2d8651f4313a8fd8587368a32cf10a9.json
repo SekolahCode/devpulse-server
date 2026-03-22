@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO issue_users (issue_id, user_key)\n            VALUES ($1, $2)\n            ON CONFLICT DO NOTHING\n            RETURNING 1 AS \"inserted!: i32\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "inserted!: i32",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e10cd738b94ad292529af2816eef18bde2d8651f4313a8fd8587368a32cf10a9"
+}

@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT root_cause, explanation, fix_suggestion, code_example,\n               severity, prevention, model, analyzed_at\n        FROM ai_analyses\n        WHERE issue_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "root_cause",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "explanation",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "fix_suggestion",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "code_example",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "severity",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "prevention",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "model",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "analyzed_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "19974e312a86d5bfd63339d9bbe8bab4a6c3026aa005d206a49ac8adc4757301"
+}

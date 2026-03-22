@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n            COUNT(*) FILTER (WHERE status = 'unresolved') AS unresolved,\n            COUNT(*) FILTER (WHERE status = 'resolved')   AS resolved,\n            COUNT(*) FILTER (WHERE status = 'ignored')    AS ignored\n           FROM issues",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "unresolved",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "resolved",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "ignored",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "e0b598c56fc15ded80e6ff57fcaa6b139ca2ee2c8d6626f3d36415334fee49f6"
+}

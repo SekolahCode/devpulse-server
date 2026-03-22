@@ -1,0 +1,51 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO issues (project_id, fingerprint, title, level, environment, last_release)\n        VALUES ($1, $2, $3, $4, $5, $6)\n        ON CONFLICT (project_id, fingerprint)\n        DO UPDATE SET\n            event_count  = issues.event_count + 1,\n            last_seen    = NOW(),\n            environment  = EXCLUDED.environment,\n            last_release = COALESCE(EXCLUDED.last_release, issues.last_release),\n            status       = CASE\n                WHEN issues.status = 'resolved' THEN 'unresolved'\n                ELSE issues.status\n            END\n        RETURNING id, event_count,\n            (xmax = 0)                          AS is_new_row,\n            (xmax != 0 AND status = 'resolved') AS is_regression,\n            first_release\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "event_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "is_new_row",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "is_regression",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "first_release",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Text",
+        "Varchar",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      null,
+      null,
+      true
+    ]
+  },
+  "hash": "bcdd03ae62d259f8eeb2d0fb13b015c852237694c5018f9c328e18f946e345d6"
+}

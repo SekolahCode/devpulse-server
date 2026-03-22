@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT i.id, i.title, i.level, p.platform\n        FROM issues i\n        JOIN projects p ON p.id = i.project_id\n        WHERE i.id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "level",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "platform",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "4a22918aaf8591e233efbcff561ead59fbafe40a90b41ecaf53e261f4e3ee7ab"
+}

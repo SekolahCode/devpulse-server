@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            i.id, i.project_id, i.fingerprint, i.title,\n            i.level, i.status, i.first_seen, i.last_seen, i.event_count,\n            p.name AS project_name, p.platform\n        FROM issues i\n        JOIN projects p ON p.id = i.project_id\n        WHERE i.id = $1\n        ",
+  "query": "\n        SELECT\n            i.id, i.project_id, i.fingerprint, i.title,\n            i.level, i.status, i.priority, i.assignee,\n            i.first_seen, i.last_seen, i.event_count,\n            i.affected_users, i.environment,\n            i.first_release, i.last_release,\n            p.name AS project_name, p.platform\n        FROM issues i\n        JOIN projects p ON p.id = i.project_id\n        WHERE i.id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -35,26 +35,56 @@
       },
       {
         "ordinal": 6,
+        "name": "priority",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "assignee",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
         "name": "first_seen",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 7,
+        "ordinal": 9,
         "name": "last_seen",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "event_count",
         "type_info": "Int4"
       },
       {
-        "ordinal": 9,
+        "ordinal": 11,
+        "name": "affected_users",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 12,
+        "name": "environment",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "first_release",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 14,
+        "name": "last_release",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 15,
         "name": "project_name",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 10,
+        "ordinal": 16,
         "name": "platform",
         "type_info": "Varchar"
       }
@@ -71,12 +101,18 @@
       false,
       true,
       true,
+      false,
       true,
+      true,
+      true,
+      true,
+      false,
+      false,
       true,
       true,
       false,
       true
     ]
   },
-  "hash": "956ac55984b64d1ebc1ac6be7a9f88d39d528a2a7a8947b781d8911d2c164f0c"
+  "hash": "b50655b87ea5b93b66494546ab47dcad04a1479ee8ee919a40dadca877cfc9ca"
 }

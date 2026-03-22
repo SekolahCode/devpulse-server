@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE issues SET first_release = $1 WHERE id = $2 AND first_release IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "700369b99208bf79c45265cf9e8e44b0318df3b0c332635581dc5961b30af1b6"
+}

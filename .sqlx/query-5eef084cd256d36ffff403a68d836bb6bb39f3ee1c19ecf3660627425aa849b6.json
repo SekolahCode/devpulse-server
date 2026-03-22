@@ -1,0 +1,49 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE alerts SET\n            enabled          = COALESCE($1, enabled),\n            cooldown_minutes = COALESCE($2, cooldown_minutes),\n            endpoint         = COALESCE($3, endpoint)\n        WHERE id = $4\n        RETURNING id, channel, endpoint, enabled, cooldown_minutes\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "channel",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "endpoint",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "enabled",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "cooldown_minutes",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bool",
+        "Int4",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "5eef084cd256d36ffff403a68d836bb6bb39f3ee1c19ecf3660627425aa849b6"
+}

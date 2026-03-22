@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) FROM issues i\n        WHERE ($1::uuid IS NULL OR i.project_id  = $1)\n          AND i.status = $2\n          AND ($3::text IS NULL OR i.level        = $3)\n          AND ($4::text IS NULL OR i.title ILIKE  $4)\n          AND ($5::text IS NULL OR i.environment  = $5)\n          AND ($6::text IS NULL OR i.last_release = $6)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "0d771571396d29c32e95b14113843f6fae044bf96d87b3937deaa7a351b6d577"
+}

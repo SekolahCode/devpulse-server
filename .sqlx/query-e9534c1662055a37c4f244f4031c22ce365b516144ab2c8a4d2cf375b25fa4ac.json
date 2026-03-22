@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, channel, endpoint, cooldown_minutes, last_alerted_at, retry_count\n        FROM alerts\n        WHERE project_id = $1\n          AND enabled = true\n          AND (retry_after IS NULL OR retry_after < NOW())\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "channel",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "endpoint",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "cooldown_minutes",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "last_alerted_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "retry_count",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "e9534c1662055a37c4f244f4031c22ce365b516144ab2c8a4d2cf375b25fa4ac"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE alerts SET enabled = false, last_error = $1 WHERE id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bf3a39e7eb58c55a1727e4cf5e60eb4ee43dce243e368dce589fbfcccd783f32"
+}
