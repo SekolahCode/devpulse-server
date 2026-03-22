@@ -95,7 +95,8 @@ onMounted(() => {
 
   function connect() {
     const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
-    const ws = new WebSocket(`${protocol}://${location.host}/ws`)
+    const token = localStorage.getItem('devpulse_token') ?? ''
+    const ws = new WebSocket(`${protocol}://${location.host}/ws?token=${encodeURIComponent(token)}`)
 
     ws.onopen = () => {
       wsConnected.value = true
