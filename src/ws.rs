@@ -1,27 +1,68 @@
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        State,
+        Query, State,
     },
-    response::Response,
+    http::StatusCode,
+    response::{IntoResponse, Response},
 };
 use futures::{sink::SinkExt, stream::StreamExt};
+use serde::Deserialize;
 use crate::AppState;
 
-pub async fn ws_handler(
-    ws:           WebSocketUpgrade,
-    State(state): State<AppState>,
-) -> Response {
-    ws.on_upgrade(|socket| handle_socket(socket, state))
+#[derive(Deserialize)]
+pub struct WsQuery {
+    token: Option<String>,
 }
 
-async fn handle_socket(socket: WebSocket, state: AppState) {
+/// WebSocket handler — requires the same ADMIN_TOKEN as the REST API.
+/// Clients pass it as a query param: /ws?token=<ADMIN_TOKEN>
+pub async fn ws_handler(
+    ws:            WebSocketUpgrade,
+    Query(params): Query<WsQuery>,
+    State(state):  State<AppState>,
+) -> Response {
+    // Validate token
+    let expected = match std::env::var("ADMIN_TOKEN").ok().filter(|t| !t.is_empty()) {
+        Some(t) => t,
+        None => return (StatusCode::UNAUTHORIZED, "Server has no ADMIN_TOKEN configured").into_response(),
+    };
+
+    let provided = params.token.unwrap_or_default();
+    if provided != expected {
+        return (StatusCode::UNAUTHORIZED, "Invalid or missing token").into_response();
+    }
+
+    let redis_url = state.redis_url.clone();
+    ws.on_upgrade(move |socket| handle_socket(socket, redis_url))
+}
+
+async fn handle_socket(socket: WebSocket, redis_url: String) {
     let (mut sender, mut receiver) = socket.split();
-    let mut rx = state.event_tx.subscribe();  // subscribe to broadcast
+
+    // Create a dedicated Redis pub/sub connection (not from the pool)
+    let client = match deadpool_redis::redis::Client::open(redis_url.as_str()) {
+        Ok(c)  => c,
+        Err(e) => {
+            tracing::error!("WS: failed to open Redis client: {}", e);
+            return;
+        }
+    };
+    let mut pubsub = match client.get_async_pubsub().await {
+        Ok(p)  => p,
+        Err(e) => {
+            tracing::error!("WS: failed to get pubsub connection: {}", e);
+            return;
+        }
+    };
+    if let Err(e) = pubsub.subscribe("devpulse:events").await {
+        tracing::error!("WS: subscribe failed: {}", e);
+        return;
+    }
+    let mut msg_stream = pubsub.into_on_message();
 
     tracing::info!("🔌 WebSocket client connected");
 
-    // Welcome message
     let _ = sender.send(Message::Text(
         serde_json::json!({
             "type":    "connected",
@@ -31,10 +72,14 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
 
     loop {
         tokio::select! {
-            // New event from worker → push to browser
-            Ok(data) = rx.recv() => {
-                if sender.send(Message::Text(data.into())).await.is_err() {
-                    break;  // client disconnected
+            // New event from Redis pub/sub → push to browser
+            Some(redis_msg) = msg_stream.next() => {
+                let payload: String = match redis_msg.get_payload() {
+                    Ok(p)  => p,
+                    Err(_) => continue,
+                };
+                if sender.send(Message::Text(payload.into())).await.is_err() {
+                    break;
                 }
             }
 

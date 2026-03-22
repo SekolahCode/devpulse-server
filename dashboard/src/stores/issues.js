@@ -10,11 +10,11 @@ export const useIssuesStore = defineStore("issues", {
     loading:     true,
     loadingMore: false,
     stats:       null,
-    live:        [],  // real-time events from WebSocket
+    live:        [],
   }),
 
   actions: {
-    async fetch(projectId, status = "unresolved", { search = "", reset = true } = {}) {
+    async fetch(projectId, status = "unresolved", { search = "", environment = "", reset = true } = {}) {
       if (reset) {
         this.loading = true;
         this.offset  = 0;
@@ -26,11 +26,12 @@ export const useIssuesStore = defineStore("issues", {
       try {
         const { data } = await axios.get("/api/issues", {
           params: {
-            project_id: projectId,
+            project_id:  projectId,
             status,
-            search:     search || undefined,
-            limit:      50,
-            offset:     reset ? 0 : this.offset,
+            search:      search       || undefined,
+            environment: environment  || undefined,
+            limit:       50,
+            offset:      reset ? 0 : this.offset,
           },
         });
 
@@ -49,9 +50,9 @@ export const useIssuesStore = defineStore("issues", {
       }
     },
 
-    async fetchMore(projectId, status, search) {
+    async fetchMore(projectId, status, search, environment) {
       if (!this.hasMore || this.loadingMore) return;
-      await this.fetch(projectId, status, { search, reset: false });
+      await this.fetch(projectId, status, { search, environment, reset: false });
     },
 
     async fetchStats() {
@@ -59,7 +60,7 @@ export const useIssuesStore = defineStore("issues", {
         const { data } = await axios.get("/api/stats");
         this.stats = data;
       } catch {
-        // stats are non-critical — fail silently
+        // non-critical
       }
     },
 
@@ -75,7 +76,18 @@ export const useIssuesStore = defineStore("issues", {
       this.total  = Math.max(0, this.total - 1);
     },
 
-    // Called by WebSocket when a new event arrives
+    async bulkResolve(ids) {
+      await Promise.all(ids.map(id => axios.patch(`/api/issues/${id}`, { status: "resolved" })));
+      this.issues = this.issues.filter((i) => !ids.includes(i.id));
+      this.total  = Math.max(0, this.total - ids.length);
+    },
+
+    async bulkIgnore(ids) {
+      await Promise.all(ids.map(id => axios.patch(`/api/issues/${id}`, { status: "ignored" })));
+      this.issues = this.issues.filter((i) => !ids.includes(i.id));
+      this.total  = Math.max(0, this.total - ids.length);
+    },
+
     addLiveEvent(event) {
       this.live.unshift(event);
       if (this.live.length > 20) this.live.pop();

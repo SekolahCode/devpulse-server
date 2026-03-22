@@ -7,6 +7,7 @@ pub enum AppError {
     NotFound(String),
     BadRequest(String),
     Unauthorized(String),
+    InternalError(String),
     TooManyRequests,
 }
 
@@ -20,6 +21,10 @@ impl IntoResponse for AppError {
             AppError::NotFound(msg)      => (StatusCode::NOT_FOUND, msg),
             AppError::BadRequest(msg)    => (StatusCode::BAD_REQUEST, msg),
             AppError::Unauthorized(msg)  => (StatusCode::UNAUTHORIZED, msg),
+            AppError::InternalError(msg) => {
+                tracing::error!("Internal error: {}", msg);
+                (StatusCode::INTERNAL_SERVER_ERROR, msg)
+            }
             AppError::TooManyRequests    => (StatusCode::TOO_MANY_REQUESTS, "Rate limit exceeded".to_string()),
         };
 

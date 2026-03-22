@@ -13,15 +13,27 @@
           <span class="font-semibold text-[15px] text-white tracking-tight">DevPulse</span>
         </router-link>
 
-        <!-- Live status -->
-        <div class="flex items-center gap-2 text-xs">
-          <span
-            :class="wsConnected ? 'bg-emerald-500 pulse-dot' : 'bg-red-500'"
-            class="w-1.5 h-1.5 rounded-full inline-block"
-          />
-          <span :class="wsConnected ? 'text-emerald-400' : 'text-red-400'">
-            {{ wsConnected ? 'Live' : 'Disconnected' }}
-          </span>
+        <div class="flex items-center gap-4">
+          <!-- Live status -->
+          <div class="flex items-center gap-2 text-xs">
+            <span
+              :class="wsConnected ? 'bg-emerald-500 pulse-dot' : 'bg-red-500'"
+              class="w-1.5 h-1.5 rounded-full inline-block"
+            />
+            <span :class="wsConnected ? 'text-emerald-400' : 'text-red-400'">
+              {{ wsConnected ? 'Live' : 'Disconnected' }}
+            </span>
+          </div>
+
+          <!-- Logout -->
+          <button
+            v-if="isLoggedIn"
+            @click="logout"
+            class="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+            title="Sign out"
+          >
+            Sign out
+          </button>
         </div>
       </div>
     </header>
@@ -57,11 +69,22 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import axios from 'axios'
 import { useIssuesStore } from './stores/issues'
 
-const store = useIssuesStore()
+const store       = useIssuesStore()
+const router      = useRouter()
 const wsConnected = ref(false)
-const liveToasts = ref([])
+const liveToasts  = ref([])
+const isLoggedIn  = ref(!!localStorage.getItem('devpulse_token'))
+
+function logout() {
+  localStorage.removeItem('devpulse_token')
+  delete axios.defaults.headers.common['Authorization']
+  isLoggedIn.value = false
+  router.push('/login')
+}
 
 const levelBadge = (level) =>
   ({ error: 'bg-red-500/15 text-red-400', warning: 'bg-amber-500/15 text-amber-400', info: 'bg-blue-500/15 text-blue-400' })[level]

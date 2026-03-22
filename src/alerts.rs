@@ -20,9 +20,11 @@ pub struct AlertContext {
 pub async fn fire_alerts(pool: &PgPool, ctx: AlertContext) {
     let alerts = sqlx::query!(
         r#"
-        SELECT id, channel, endpoint, cooldown_minutes, last_alerted_at
+        SELECT id, channel, endpoint, cooldown_minutes, last_alerted_at, retry_count
         FROM alerts
-        WHERE project_id = $1 AND enabled = true
+        WHERE project_id = $1
+          AND enabled = true
+          AND (retry_after IS NULL OR retry_after < NOW())
         "#,
         ctx.project_id
     )
@@ -30,9 +32,7 @@ pub async fn fire_alerts(pool: &PgPool, ctx: AlertContext) {
     .await
     .unwrap_or_default();
 
-    if alerts.is_empty() {
-        return;
-    }
+    if alerts.is_empty() { return; }
 
     let event_type = if ctx.is_regression { "🔄 Regression" } else { "🚨 New Issue" };
     let message = format!(
@@ -41,7 +41,7 @@ pub async fn fire_alerts(pool: &PgPool, ctx: AlertContext) {
     );
 
     let http = Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
+        .timeout(std::time::Duration::from_secs(10))
         .build()
         .unwrap_or_default();
 
@@ -49,47 +49,86 @@ pub async fn fire_alerts(pool: &PgPool, ctx: AlertContext) {
         let channel  = alert.channel.as_deref().unwrap_or("");
         let endpoint = alert.endpoint.clone().unwrap_or_default();
 
-        // ── Cooldown check ────────────────────────────────────────────────────
+        // Cooldown check
         let cooldown_minutes = alert.cooldown_minutes.unwrap_or(60) as i64;
         if let Some(last) = alert.last_alerted_at {
             let elapsed = (chrono::Utc::now() - last).num_minutes();
             if elapsed < cooldown_minutes {
                 tracing::info!(
-                    "Alert '{}' on cooldown ({}/{} min elapsed), skipping",
+                    "Alert '{}' on cooldown ({}/{} min), skipping",
                     channel, elapsed, cooldown_minutes
                 );
                 continue;
             }
         }
 
-        // ── Fire ──────────────────────────────────────────────────────────────
-        let fired = match channel {
-            "webhook"  => { fire_webhook(&http, &endpoint, &ctx, &message).await; true }
-            "telegram" => { fire_telegram(&http, &endpoint, &message).await; true }
-            "email"    => { fire_email(&endpoint, &message, &ctx.title).await; true }
+        let result = match channel {
+            "webhook"  => fire_webhook(&http, &endpoint, &ctx, &message).await,
+            "telegram" => fire_telegram(&http, &endpoint, &message).await,
+            "email"    => fire_email(&endpoint, &message, &ctx.title).await,
             other      => {
                 tracing::warn!("Unknown alert channel: {}", other);
-                false
+                Ok(())
             }
         };
 
-        // ── Stamp last_alerted_at so the cooldown window starts now ───────────
-        if fired {
-            if let Err(e) = sqlx::query!(
-                "UPDATE alerts SET last_alerted_at = NOW() WHERE id = $1",
-                alert.id
-            )
-            .execute(pool)
-            .await
-            {
-                tracing::error!("Failed to stamp last_alerted_at: {}", e);
+        match result {
+            Ok(()) => {
+                // Success — stamp cooldown, reset retry counter
+                if let Err(e) = sqlx::query!(
+                    "UPDATE alerts SET last_alerted_at = NOW(), retry_count = 0,
+                                       retry_after = NULL, last_error = NULL
+                     WHERE id = $1",
+                    alert.id
+                )
+                .execute(pool)
+                .await
+                {
+                    tracing::error!("Failed to stamp last_alerted_at: {}", e);
+                }
+            }
+            Err(err) => {
+                // Failed — schedule exponential-backoff retry (max 5 attempts)
+                let new_count = alert.retry_count + 1;
+                let backoff_mins: i64 = match new_count {
+                    1 => 2,
+                    2 => 5,
+                    3 => 15,
+                    4 => 60,
+                    _ => {
+                        tracing::error!("Alert {} failed {} times, giving up: {}", alert.id, new_count, err);
+                        // Disable after 5 consecutive failures
+                        let _ = sqlx::query!(
+                            "UPDATE alerts SET enabled = false, last_error = $1 WHERE id = $2",
+                            err, alert.id
+                        )
+                        .execute(pool)
+                        .await;
+                        continue;
+                    }
+                };
+
+                let retry_after = chrono::Utc::now() + chrono::Duration::minutes(backoff_mins);
+                tracing::warn!(
+                    "Alert {} failed (attempt {}), retrying in {}m: {}",
+                    alert.id, new_count, backoff_mins, err
+                );
+                let _ = sqlx::query!(
+                    "UPDATE alerts SET retry_count = $1, retry_after = $2, last_error = $3 WHERE id = $4",
+                    new_count,
+                    retry_after,
+                    err,
+                    alert.id
+                )
+                .execute(pool)
+                .await;
             }
         }
     }
 }
 
 // ── Webhook ───────────────────────────────────────────────────────────────────
-async fn fire_webhook(http: &Client, url: &str, ctx: &AlertContext, message: &str) {
+async fn fire_webhook(http: &Client, url: &str, ctx: &AlertContext, message: &str) -> Result<(), String> {
     let body = serde_json::json!({
         "event":        if ctx.is_regression { "regression" } else { "new_issue" },
         "issue_id":     ctx.issue_id,
@@ -100,42 +139,53 @@ async fn fire_webhook(http: &Client, url: &str, ctx: &AlertContext, message: &st
         "message":      message,
     });
 
-    match http.post(url).json(&body).send().await {
-        Ok(r)  => tracing::info!("Webhook fired → {} ({})", url, r.status()),
-        Err(e) => tracing::error!("Webhook failed → {}: {}", url, e),
+    let resp = http.post(url).json(&body).send().await
+        .map_err(|e| format!("Webhook request failed: {e}"))?;
+
+    if resp.status().is_success() {
+        tracing::info!("Webhook fired → {} ({})", url, resp.status());
+        Ok(())
+    } else {
+        Err(format!("Webhook returned {}", resp.status()))
     }
 }
 
 // ── Telegram ──────────────────────────────────────────────────────────────────
 // endpoint format: "BOT_TOKEN:CHAT_ID"
-async fn fire_telegram(http: &Client, endpoint: &str, message: &str) {
-    let parts: Vec<&str> = endpoint.splitn(2, ':').collect();
-    if parts.len() != 2 {
-        tracing::error!("Invalid Telegram endpoint format. Use BOT_TOKEN:CHAT_ID");
-        return;
-    }
-    let (bot_token, chat_id) = (parts[0], parts[1]);
-    let url = format!("https://api.telegram.org/bot{}/sendMessage", bot_token);
+async fn fire_telegram(http: &Client, endpoint: &str, message: &str) -> Result<(), String> {
+    let (bot_token, chat_id) = endpoint.split_once(':')
+        .ok_or("Invalid Telegram endpoint: expected BOT_TOKEN:CHAT_ID")?;
 
+    // Validate chat_id contains only digits (and optional leading -)
+    if !chat_id.trim_start_matches('-').chars().all(|c| c.is_ascii_digit()) {
+        return Err(format!("Invalid Telegram chat_id: '{}'", chat_id));
+    }
+
+    let url = format!("https://api.telegram.org/bot{}/sendMessage", bot_token);
     let body = serde_json::json!({
         "chat_id":    chat_id,
         "text":       message,
         "parse_mode": "HTML"
     });
 
-    match http.post(&url).json(&body).send().await {
-        Ok(r)  => tracing::info!("Telegram alert sent ({})", r.status()),
-        Err(e) => tracing::error!("Telegram alert failed: {}", e),
+    let resp = http.post(&url).json(&body).send().await
+        .map_err(|e| format!("Telegram request failed: {e}"))?;
+
+    if resp.status().is_success() {
+        tracing::info!("Telegram alert sent ({})", resp.status());
+        Ok(())
+    } else {
+        let body = resp.text().await.unwrap_or_default();
+        Err(format!("Telegram API error: {body}"))
     }
 }
 
 // ── Email ─────────────────────────────────────────────────────────────────────
-// endpoint = recipient email; SMTP config from env vars
-async fn fire_email(to: &str, body: &str, subject: &str) {
+async fn fire_email(to: &str, body: &str, subject: &str) -> Result<(), String> {
     let smtp_host = std::env::var("SMTP_HOST").unwrap_or_default();
     if smtp_host.is_empty() {
         tracing::debug!("SMTP_HOST not configured — skipping email alert");
-        return;
+        return Ok(()); // not a failure — just not configured
     }
 
     let smtp_port = std::env::var("SMTP_PORT")
@@ -147,41 +197,34 @@ async fn fire_email(to: &str, body: &str, subject: &str) {
     let from_addr = std::env::var("SMTP_FROM")
         .unwrap_or_else(|_| "devpulse@localhost".into());
 
-    let from_mailbox = match from_addr.parse() {
-        Ok(m)  => m,
-        Err(e) => { tracing::error!("Invalid SMTP_FROM '{}': {}", from_addr, e); return; }
-    };
-    let to_mailbox = match to.parse() {
-        Ok(m)  => m,
-        Err(e) => { tracing::error!("Invalid recipient '{}': {}", to, e); return; }
-    };
+    let from_mailbox = from_addr.parse()
+        .map_err(|e| format!("Invalid SMTP_FROM '{}': {}", from_addr, e))?;
+    let to_mailbox = to.parse()
+        .map_err(|e| format!("Invalid recipient '{}': {}", to, e))?;
 
-    let email = match Message::builder()
+    let email = Message::builder()
         .from(from_mailbox)
         .to(to_mailbox)
         .subject(format!("[DevPulse] {}", subject))
         .header(ContentType::TEXT_PLAIN)
         .body(body.to_string())
-    {
-        Ok(e)  => e,
-        Err(e) => { tracing::error!("Failed to build email: {}", e); return; }
-    };
+        .map_err(|e| format!("Failed to build email: {e}"))?;
 
     let transport = if smtp_user.is_empty() {
-        // Dev mode — no auth (Mailpit/Mailhog)
         AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&smtp_host)
             .port(smtp_port)
             .build()
     } else {
         let creds = Credentials::new(smtp_user, smtp_pass);
-        match AsyncSmtpTransport::<Tokio1Executor>::relay(&smtp_host) {
-            Ok(b)  => b.credentials(creds).build(),
-            Err(e) => { tracing::error!("Failed to build SMTP transport: {}", e); return; }
-        }
+        AsyncSmtpTransport::<Tokio1Executor>::relay(&smtp_host)
+            .map_err(|e| format!("SMTP relay error: {e}"))?
+            .credentials(creds)
+            .build()
     };
 
-    match transport.send(email).await {
-        Ok(_)  => tracing::info!("Email alert sent to {}", to),
-        Err(e) => tracing::error!("Email alert failed: {}", e),
-    }
+    transport.send(email).await
+        .map_err(|e| format!("Email send failed: {e}"))?;
+
+    tracing::info!("Email alert sent to {}", to);
+    Ok(())
 }

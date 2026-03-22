@@ -31,7 +31,7 @@
       </div>
 
       <!-- Stats grid -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
         <div class="bg-[#111119] border border-white/6 rounded-xl p-4">
           <p class="text-[11px] text-gray-500 uppercase tracking-wide font-medium">Status</p>
           <p :class="statusColor(issue.status)" class="text-base font-semibold mt-1 capitalize">{{ issue.status }}</p>
@@ -41,12 +41,45 @@
           <p class="text-base font-semibold text-white mt-1">{{ issue.event_count?.toLocaleString() ?? '—' }}</p>
         </div>
         <div class="bg-[#111119] border border-white/6 rounded-xl p-4">
+          <p class="text-[11px] text-gray-500 uppercase tracking-wide font-medium">Affected users</p>
+          <p class="text-base font-semibold text-amber-400 mt-1">{{ issue.affected_users?.toLocaleString() ?? '0' }}</p>
+        </div>
+        <div class="bg-[#111119] border border-white/6 rounded-xl p-4">
           <p class="text-[11px] text-gray-500 uppercase tracking-wide font-medium">Last seen</p>
           <p class="text-base font-semibold text-white mt-1">{{ timeAgo(issue.last_seen) }}</p>
         </div>
         <div class="bg-[#111119] border border-white/6 rounded-xl p-4">
           <p class="text-[11px] text-gray-500 uppercase tracking-wide font-medium">First seen</p>
           <p class="text-base font-semibold text-white mt-1">{{ timeAgo(issue.first_seen) }}</p>
+        </div>
+      </div>
+
+      <!-- Metadata row: assignee, priority, release -->
+      <div class="flex flex-wrap items-center gap-3 mb-5">
+        <!-- Priority badge -->
+        <span :class="priorityBadge(issue.priority)"
+              class="text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide">
+          {{ issue.priority ?? 'medium' }} priority
+        </span>
+        <!-- Release -->
+        <span v-if="issue.last_release" class="text-[11px] text-gray-400 bg-white/5 px-2 py-0.5 rounded font-mono">
+          v{{ issue.last_release }}
+        </span>
+        <!-- Assignee badge / set assignee -->
+        <div class="flex items-center gap-1.5">
+          <span v-if="issue.assignee" class="text-[11px] text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded">
+            👤 {{ issue.assignee }}
+          </span>
+          <button v-if="!showAssignee" @click="showAssignee = true"
+            class="text-[11px] text-gray-600 hover:text-gray-400 transition-colors">
+            {{ issue.assignee ? 'Reassign' : '+ Assign' }}
+          </button>
+          <form v-else @submit.prevent="setAssignee" class="flex gap-1">
+            <input v-model="assigneeInput" placeholder="username" autofocus
+              class="text-[11px] bg-[#111119] border border-white/10 rounded px-2 py-0.5 text-white w-28 focus:outline-none focus:border-violet-500" />
+            <button type="submit" class="text-[11px] text-violet-400 hover:text-violet-300 px-1">✓</button>
+            <button type="button" @click="showAssignee = false" class="text-[11px] text-gray-600 hover:text-gray-400 px-1">✕</button>
+          </form>
         </div>
       </div>
 
@@ -112,8 +145,21 @@
               </div>
             </div>
 
+            <!-- Breadcrumbs -->
+            <div v-if="event.breadcrumbs?.length" class="px-4 py-3 border-t border-white/5">
+              <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-2">Breadcrumbs</p>
+              <div class="space-y-1 font-mono text-[11px]">
+                <div v-for="(crumb, ci) in event.breadcrumbs" :key="ci"
+                     class="flex items-start gap-2 text-gray-500">
+                  <span class="shrink-0 text-gray-700 tabular-nums">{{ crumb.timestamp ? crumb.timestamp.replace('T', ' ').slice(0, 19) : '' }}</span>
+                  <span v-if="crumb.category" :class="crumbColor(crumb.level)" class="shrink-0">{{ crumb.category }}</span>
+                  <span class="text-gray-400 truncate">{{ crumb.message }}</span>
+                </div>
+              </div>
+            </div>
+
             <!-- Collapsible raw details -->
-            <div :class="event.payload?.exception?.stacktrace?.length ? 'border-t border-white/5' : ''">
+            <div :class="(event.payload?.exception?.stacktrace?.length || event.breadcrumbs?.length) ? 'border-t border-white/5' : ''">
               <details class="group">
                 <summary class="flex items-center justify-between px-4 py-2.5 text-[11px] text-gray-600
                                hover:text-gray-400 cursor-pointer select-none list-none transition-colors">
@@ -144,6 +190,83 @@
         </div>
       </div>
 
+      <!-- AI Analysis panel -->
+      <div class="mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-[11px] text-gray-500 uppercase tracking-wide font-medium flex items-center gap-1.5">
+            <span>AI Analysis</span>
+            <span v-if="ai?.cached" class="text-[9px] px-1.5 py-0.5 rounded bg-gray-700/60 text-gray-500 font-bold tracking-wider">cached</span>
+          </h2>
+          <button
+            @click="runAnalysis"
+            :disabled="aiLoading"
+            class="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg font-medium transition-all
+                   bg-violet-600/20 text-violet-400 hover:bg-violet-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg v-if="aiLoading" class="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+            </svg>
+            <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            {{ aiLoading ? 'Analysing…' : ai ? 'Re-analyse' : 'Analyse with AI' }}
+          </button>
+        </div>
+
+        <!-- Error -->
+        <div v-if="aiError" class="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">
+          {{ aiError }}
+        </div>
+
+        <!-- Results -->
+        <div v-else-if="ai" class="space-y-3">
+          <!-- Severity + root cause row -->
+          <div class="bg-[#111119] border border-white/6 rounded-xl p-4">
+            <div class="flex items-start gap-3">
+              <span :class="severityBadge(ai.severity)"
+                    class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider mt-0.5">
+                {{ ai.severity }}
+              </span>
+              <p class="text-[13px] text-gray-200 font-medium leading-snug">{{ ai.root_cause }}</p>
+            </div>
+          </div>
+
+          <!-- Explanation -->
+          <div class="bg-[#111119] border border-white/6 rounded-xl p-4">
+            <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-1.5">Explanation</p>
+            <p class="text-[13px] text-gray-300 leading-relaxed">{{ ai.explanation }}</p>
+          </div>
+
+          <!-- Fix suggestion -->
+          <div class="bg-[#111119] border border-white/6 rounded-xl p-4">
+            <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-1.5">How to fix</p>
+            <p class="text-[13px] text-gray-300 leading-relaxed">{{ ai.fix_suggestion }}</p>
+          </div>
+
+          <!-- Code example -->
+          <div v-if="ai.code_example" class="bg-[#111119] border border-white/6 rounded-xl overflow-hidden">
+            <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium px-4 pt-3 pb-2">Code example</p>
+            <pre class="text-[12px] text-gray-300 font-mono bg-[#0a0a10] px-4 pb-4 overflow-x-auto leading-5 whitespace-pre-wrap">{{ ai.code_example }}</pre>
+          </div>
+
+          <!-- Prevention -->
+          <div v-if="ai.prevention" class="bg-[#111119] border border-white/6 rounded-xl p-4">
+            <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-1.5">Prevention</p>
+            <p class="text-[13px] text-gray-400 leading-relaxed">{{ ai.prevention }}</p>
+          </div>
+
+          <p class="text-[10px] text-gray-700 text-right">
+            Powered by {{ ai.model }} · {{ ai.cached ? 'cached result' : 'fresh analysis' }}
+          </p>
+        </div>
+
+        <!-- Prompt -->
+        <div v-else class="bg-[#111119] border border-white/6 rounded-xl px-4 py-6 text-center">
+          <p class="text-[13px] text-gray-500">Click <span class="text-violet-400 font-medium">Analyse with AI</span> to get root cause, fix suggestions, and prevention tips powered by Claude.</p>
+        </div>
+      </div>
+
       <!-- Fingerprint -->
       <div class="bg-[#111119] border border-white/6 rounded-xl p-4">
         <p class="text-[11px] text-gray-500 uppercase tracking-wide font-medium mb-2">Fingerprint</p>
@@ -166,19 +289,47 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 
-const route   = useRoute()
-const router  = useRouter()
-const issue   = ref(null)
-const loading = ref(true)
+const route         = useRoute()
+const router        = useRouter()
+const issue         = ref(null)
+const loading       = ref(true)
+const ai            = ref(null)
+const aiLoading     = ref(false)
+const aiError       = ref(null)
+const showAssignee  = ref(false)
+const assigneeInput = ref('')
 
 onMounted(async () => {
   try {
-    const { data } = await axios.get(`/api/issues/${route.params.id}`)
-    issue.value = data
+    const [issueRes] = await Promise.all([
+      axios.get(`/api/issues/${route.params.id}`),
+      // Silently load cached AI analysis if it exists
+      axios.get(`/api/issues/${route.params.id}/analyze`)
+        .then(r => { ai.value = r.data })
+        .catch(() => {}), // 404 means no analysis yet — that's fine
+    ])
+    issue.value = issueRes.data
   } finally {
     loading.value = false
   }
 })
+
+async function runAnalysis() {
+  aiLoading.value = true
+  aiError.value   = null
+  try {
+    const { data } = await axios.post(`/api/issues/${route.params.id}/analyze`)
+    ai.value = data
+  } catch (err) {
+    if (err.response?.status === 429) {
+      aiError.value = 'Analysis was run recently. Please wait a moment before re-analysing.'
+    } else {
+      aiError.value = err.response?.data?.error ?? 'Analysis failed. Check that ANTHROPIC_API_KEY is configured.'
+    }
+  } finally {
+    aiLoading.value = false
+  }
+}
 
 async function resolve() {
   await axios.patch(`/api/issues/${route.params.id}`, { status: 'resolved' })
@@ -189,6 +340,28 @@ async function ignore() {
   await axios.patch(`/api/issues/${route.params.id}`, { status: 'ignored' })
   router.back()
 }
+
+async function setAssignee() {
+  const val = assigneeInput.value.trim()
+  await axios.patch(`/api/issues/${route.params.id}`, { assignee: val || '__clear__' })
+  issue.value = { ...issue.value, assignee: val || null }
+  showAssignee.value = false
+  assigneeInput.value = ''
+}
+
+const priorityBadge = (p) =>
+  ({ critical: 'bg-red-500/20 text-red-400', high: 'bg-orange-500/20 text-orange-400',
+     medium: 'bg-amber-500/20 text-amber-400', low: 'bg-blue-500/20 text-blue-400' })[p]
+  ?? 'bg-gray-700/50 text-gray-400'
+
+const crumbColor = (level) =>
+  ({ error: 'text-red-400', warning: 'text-amber-400', info: 'text-blue-400', debug: 'text-gray-600' })[level]
+  ?? 'text-gray-600'
+
+const severityBadge = (s) =>
+  ({ critical: 'bg-red-500/20 text-red-400', high: 'bg-orange-500/20 text-orange-400',
+     medium: 'bg-amber-500/20 text-amber-400', low: 'bg-blue-500/20 text-blue-400' })[s]
+  ?? 'bg-gray-700/50 text-gray-400'
 
 const levelBadge = (level) =>
   ({ error: 'bg-red-500/15 text-red-400', warning: 'bg-amber-500/15 text-amber-400', info: 'bg-blue-500/15 text-blue-400' })[level]

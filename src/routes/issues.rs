@@ -9,12 +9,13 @@ use crate::{errors::AppError, AppState};
 
 #[derive(Deserialize)]
 pub struct IssueQuery {
-    pub project_id: Option<Uuid>,
-    pub status:     Option<String>,   // unresolved | resolved | ignored
-    pub level:      Option<String>,   // error | warning | info
-    pub search:     Option<String>,   // full-text search on title
-    pub limit:      Option<i64>,
-    pub offset:     Option<i64>,
+    pub project_id:  Option<Uuid>,
+    pub status:      Option<String>,   // unresolved | resolved | ignored
+    pub level:       Option<String>,   // error | warning | info
+    pub environment: Option<String>,   // production | staging | development
+    pub search:      Option<String>,   // full-text search on title
+    pub limit:       Option<i64>,
+    pub offset:      Option<i64>,
 }
 
 // GET /api/issues?project_id=&status=&level=&search=&limit=&offset=
@@ -36,55 +37,68 @@ pub async fn list_issues(
         r#"
         SELECT
             i.id, i.project_id, i.fingerprint, i.title,
-            i.level, i.status, i.first_seen, i.last_seen, i.event_count,
+            i.level, i.status, i.priority, i.assignee,
+            i.first_seen, i.last_seen, i.event_count,
+            i.affected_users, i.environment,
+            i.first_release, i.last_release,
             p.name AS project_name
         FROM issues i
         JOIN projects p ON p.id = i.project_id
         WHERE ($1::uuid IS NULL OR i.project_id = $1)
           AND i.status = $2
-          AND ($3::text IS NULL OR i.level  = $3)
+          AND ($3::text IS NULL OR i.level       = $3)
           AND ($4::text IS NULL OR i.title ILIKE $4)
+          AND ($5::text IS NULL OR i.environment = $5)
         ORDER BY i.last_seen DESC
-        LIMIT $5 OFFSET $6
+        LIMIT $6 OFFSET $7
         "#,
         params.project_id as Option<Uuid>,
         status,
         params.level.clone() as Option<String>,
         search.clone() as Option<String>,
+        params.environment.clone() as Option<String>,
         limit,
         offset
     )
     .fetch_all(&state.pg_pool)
     .await?;
 
-    // Total count for the same filters (so the frontend knows when to stop)
+    // Total count for the same filters
     let total = sqlx::query_scalar!(
         r#"
         SELECT COUNT(*) FROM issues i
         WHERE ($1::uuid IS NULL OR i.project_id = $1)
           AND i.status = $2
-          AND ($3::text IS NULL OR i.level  = $3)
+          AND ($3::text IS NULL OR i.level       = $3)
           AND ($4::text IS NULL OR i.title ILIKE $4)
+          AND ($5::text IS NULL OR i.environment = $5)
         "#,
         params.project_id as Option<Uuid>,
         status,
         params.level as Option<String>,
-        search as Option<String>
+        search as Option<String>,
+        params.environment as Option<String>
     )
     .fetch_one(&state.pg_pool)
     .await?
     .unwrap_or(0);
 
     let data: Vec<Value> = issues.iter().map(|i| json!({
-        "id":           i.id,
-        "project_id":   i.project_id,
-        "project_name": i.project_name,
-        "title":        i.title,
-        "level":        i.level,
-        "status":       i.status,
-        "first_seen":   i.first_seen,
-        "last_seen":    i.last_seen,
-        "event_count":  i.event_count,
+        "id":              i.id,
+        "project_id":      i.project_id,
+        "project_name":    i.project_name,
+        "title":           i.title,
+        "level":           i.level,
+        "status":          i.status,
+        "priority":        i.priority,
+        "assignee":        i.assignee,
+        "first_seen":      i.first_seen,
+        "last_seen":       i.last_seen,
+        "event_count":     i.event_count,
+        "affected_users":  i.affected_users,
+        "environment":     i.environment,
+        "first_release":   i.first_release,
+        "last_release":    i.last_release,
     })).collect();
 
     Ok(Json(json!({
@@ -104,7 +118,10 @@ pub async fn get_issue(
         r#"
         SELECT
             i.id, i.project_id, i.fingerprint, i.title,
-            i.level, i.status, i.first_seen, i.last_seen, i.event_count,
+            i.level, i.status, i.priority, i.assignee,
+            i.first_seen, i.last_seen, i.event_count,
+            i.affected_users, i.environment,
+            i.first_release, i.last_release,
             p.name AS project_name, p.platform
         FROM issues i
         JOIN projects p ON p.id = i.project_id
@@ -139,45 +156,71 @@ pub async fn get_issue(
     })).collect();
 
     Ok(Json(json!({
-        "id":           issue.id,
-        "project_id":   issue.project_id,
-        "project_name": issue.project_name,
-        "platform":     issue.platform,
-        "fingerprint":  issue.fingerprint,
-        "title":        issue.title,
-        "level":        issue.level,
-        "status":       issue.status,
-        "first_seen":   issue.first_seen,
-        "last_seen":    issue.last_seen,
-        "event_count":  issue.event_count,
-        "events":       events_data,
+        "id":             issue.id,
+        "project_id":     issue.project_id,
+        "project_name":   issue.project_name,
+        "platform":       issue.platform,
+        "fingerprint":    issue.fingerprint,
+        "title":          issue.title,
+        "level":          issue.level,
+        "status":         issue.status,
+        "priority":       issue.priority,
+        "assignee":       issue.assignee,
+        "environment":    issue.environment,
+        "first_seen":     issue.first_seen,
+        "last_seen":      issue.last_seen,
+        "event_count":    issue.event_count,
+        "affected_users": issue.affected_users,
+        "first_release":  issue.first_release,
+        "last_release":   issue.last_release,
+        "events":         events_data,
     })))
 }
 
-// PATCH /api/issues/:id  —  { "status": "resolved" | "ignored" | "unresolved" }
+// PATCH /api/issues/:id  — update status, assignee, and/or priority
 pub async fn update_issue(
     Path(id):     Path<Uuid>,
     State(state): State<AppState>,
     Json(body):   Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    let status = body["status"]
-        .as_str()
-        .ok_or_else(|| AppError::BadRequest("status is required".into()))?;
-
-    if !["resolved", "ignored", "unresolved"].contains(&status) {
-        return Err(AppError::BadRequest(
-            "status must be resolved, ignored, or unresolved".into()
-        ));
+    if body["status"].is_null() && body["assignee"].is_null() && body["priority"].is_null() {
+        return Err(AppError::BadRequest("provide status, assignee, or priority".into()));
     }
 
-    sqlx::query!(
-        "UPDATE issues SET status = $1 WHERE id = $2",
-        status, id
-    )
-    .execute(&state.pg_pool)
-    .await?;
+    if let Some(status) = body["status"].as_str() {
+        if !["resolved", "ignored", "unresolved"].contains(&status) {
+            return Err(AppError::BadRequest(
+                "status must be resolved, ignored, or unresolved".into()
+            ));
+        }
+    }
 
-    Ok(Json(json!({ "id": id, "status": status })))
+    let row = sqlx::query!(
+        r#"
+        UPDATE issues SET
+            status   = COALESCE($1, status),
+            assignee = CASE WHEN $2::text = '__clear__' THEN NULL
+                            WHEN $2::text IS NULL THEN assignee
+                            ELSE $2 END,
+            priority = COALESCE($3, priority)
+        WHERE id = $4
+        RETURNING id, status, assignee, priority
+        "#,
+        body["status"].as_str() as Option<&str>,
+        body["assignee"].as_str() as Option<&str>,
+        body["priority"].as_str() as Option<&str>,
+        id
+    )
+    .fetch_optional(&state.pg_pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound("Issue not found".into()))?;
+
+    Ok(Json(json!({
+        "id":       row.id,
+        "status":   row.status,
+        "assignee": row.assignee,
+        "priority": row.priority,
+    })))
 }
 
 // DELETE /api/issues/:id

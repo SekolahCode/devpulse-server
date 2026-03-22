@@ -1,41 +1,47 @@
-use std::{
-    collections::HashMap,
-    sync::Mutex,
-    time::{Duration, Instant},
-};
+/// Redis-backed sliding-window rate limiter.
+/// Uses a fixed-window INCR approach: first INCR sets TTL, subsequent INCRs
+/// count within that window. Fails open (allows request) on Redis errors so
+/// an outage never blocks ingest.
+use deadpool_redis::Pool as RedisPool;
 
-/// Simple sliding-window rate limiter keyed by a string (e.g. API key).
-/// Uses only std — no extra crate required.
 pub struct RateLimiter {
-    store:          Mutex<HashMap<String, Vec<Instant>>>,
+    pool:           RedisPool,
     max_per_window: usize,
-    window:         Duration,
+    window_secs:    u64,
 }
 
 impl RateLimiter {
-    pub fn new(max_per_window: usize, window_secs: u64) -> Self {
-        Self {
-            store:          Mutex::new(HashMap::new()),
-            max_per_window,
-            window:         Duration::from_secs(window_secs),
-        }
+    pub fn new(pool: RedisPool, max_per_window: usize, window_secs: u64) -> Self {
+        Self { pool, max_per_window, window_secs }
     }
 
     /// Returns `true` if the request is allowed, `false` if rate-limited.
-    pub fn check(&self, key: &str) -> bool {
-        let mut store = self.store.lock().unwrap_or_else(|e| e.into_inner());
-        let now       = Instant::now();
-        let window    = self.window;
-        let entry     = store.entry(key.to_string()).or_default();
+    pub async fn check(&self, key: &str) -> bool {
+        let mut conn = match self.pool.get().await {
+            Ok(c)  => c,
+            Err(_) => return true, // fail open — don't block ingest on Redis error
+        };
 
-        // Evict timestamps outside the current window
-        entry.retain(|&t| now.duration_since(t) < window);
+        let redis_key = format!("devpulse:rl:{}", key);
 
-        if entry.len() >= self.max_per_window {
-            false
-        } else {
-            entry.push(now);
-            true
+        let count: i64 = match deadpool_redis::redis::cmd("INCR")
+            .arg(&redis_key)
+            .query_async(&mut *conn)
+            .await
+        {
+            Ok(c)  => c,
+            Err(_) => return true,
+        };
+
+        // Only set expiry on the first request in the window
+        if count == 1 {
+            let _: Result<(), _> = deadpool_redis::redis::cmd("EXPIRE")
+                .arg(&redis_key)
+                .arg(self.window_secs)
+                .query_async(&mut *conn)
+                .await;
         }
+
+        count <= self.max_per_window as i64
     }
 }

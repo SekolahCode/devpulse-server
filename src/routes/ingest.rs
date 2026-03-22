@@ -16,8 +16,8 @@ pub async fn handle_ingest(
     Json(payload): Json<IngestPayload>,
 ) -> Result<StatusCode, AppError> {
 
-    // 1. Rate limit per API key (sliding window, configured via INGEST_RATE_LIMIT)
-    if !state.rate_limiter.check(&api_key) {
+    // 1. Rate limit per API key (Redis-backed, configured via INGEST_RATE_LIMIT)
+    if !state.rate_limiter.check(&api_key).await {
         return Err(AppError::TooManyRequests);
     }
 

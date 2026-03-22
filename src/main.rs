@@ -1,3 +1,4 @@
+mod ai;
 mod alerts;
 mod auth;
 mod db;
@@ -12,7 +13,7 @@ mod ws;
 
 use axum::{
     body::Body,
-    extract::OriginalUri,
+    extract::{DefaultBodyLimit, OriginalUri},
     http::{header, Method, StatusCode},
     middleware,
     response::Response,
@@ -23,15 +24,12 @@ use tower_http::cors::CorsLayer;
 use deadpool_redis::{Config as RedisConfig, Runtime};
 use include_dir::{include_dir, Dir};
 use rate_limit::RateLimiter;
+use reqwest::Client;
 use std::sync::Arc;
-use tokio::sync::broadcast;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 static WEB_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/web/dist");
 
-/// Serve static assets with correct MIME types, fall back to index.html for
-/// client-side routes (Vue Router).  Without this, the browser receives HTML
-/// when it requests a .js file and throws a MIME-type error.
 async fn serve_spa(OriginalUri(uri): OriginalUri) -> Response<Body> {
     let path = uri.path().trim_start_matches('/');
 
@@ -42,7 +40,6 @@ async fn serve_spa(OriginalUri(uri): OriginalUri) -> Response<Body> {
             .body(Body::from(file.contents()))
             .unwrap()
     } else {
-        // Unknown path → return index.html so Vue Router handles it
         let index = WEB_DIR.get_file("index.html").unwrap();
         Response::builder()
             .status(StatusCode::OK)
@@ -73,10 +70,12 @@ fn mime_for(path: &str) -> &'static str {
 
 #[derive(Clone)]
 pub struct AppState {
-    pub pg_pool:      sqlx::PgPool,
-    pub redis_pool:   deadpool_redis::Pool,
-    pub event_tx:     broadcast::Sender<String>,
-    pub rate_limiter: Arc<RateLimiter>,
+    pub pg_pool:       sqlx::PgPool,
+    pub redis_pool:    deadpool_redis::Pool,
+    pub redis_url:     String,             // for WS pub/sub dedicated connections
+    pub rate_limiter:  Arc<RateLimiter>,
+    pub http_client:   Client,
+    pub anthropic_key: Option<String>,
 }
 
 #[tokio::main]
@@ -103,29 +102,41 @@ async fn main() {
     // ── Redis ─────────────────────────────────────────────────────────────────
     let redis_url = std::env::var("REDIS_URL")
         .unwrap_or_else(|_| "redis://localhost:6379".into());
-    let redis_pool = RedisConfig::from_url(redis_url)
+    let redis_pool = RedisConfig::from_url(&redis_url)
         .create_pool(Some(Runtime::Tokio1))
         .expect("Failed to create Redis pool");
 
-    // ── Broadcast channel for real-time WebSocket events ─────────────────────
-    let (event_tx, _) = broadcast::channel::<String>(100);
-
-    // ── Rate limiter (per-API-key sliding window) ─────────────────────────────
+    // ── Rate limiter (Redis-backed, per-API-key) ──────────────────────────────
     let rate_limit = std::env::var("INGEST_RATE_LIMIT")
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(120usize);
-    let rate_limiter = Arc::new(RateLimiter::new(rate_limit, 60));
+    let rate_limiter = Arc::new(RateLimiter::new(redis_pool.clone(), rate_limit, 60));
+
+    // ── Shared HTTP client (for AI analysis + alerts) ─────────────────────────
+    let http_client = Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .expect("Failed to build HTTP client");
+
+    let anthropic_key = std::env::var("ANTHROPIC_API_KEY").ok().filter(|k| !k.is_empty());
+    if anthropic_key.is_some() {
+        tracing::info!("🤖 AI analysis enabled (ANTHROPIC_API_KEY configured)");
+    } else {
+        tracing::warn!("⚠️  ANTHROPIC_API_KEY not set — AI analysis endpoint will return 400");
+    }
 
     let state = AppState {
-        pg_pool:      pg_pool.clone(),
-        redis_pool:   redis_pool.clone(),
-        event_tx:     event_tx.clone(),
+        pg_pool:       pg_pool.clone(),
+        redis_pool:    redis_pool.clone(),
+        redis_url:     redis_url.clone(),
         rate_limiter,
+        http_client,
+        anthropic_key,
     };
 
     // ── Background: event worker ──────────────────────────────────────────────
-    tokio::spawn(worker::run(redis_pool, pg_pool.clone(), event_tx));
+    tokio::spawn(worker::run(redis_pool.clone(), pg_pool.clone()));
     tracing::info!("⚙️  Event worker spawned");
 
     // ── Background: event retention ───────────────────────────────────────────
@@ -135,22 +146,37 @@ async fn main() {
         .unwrap_or(90i64);
     let pool_ret = pg_pool.clone();
     tokio::spawn(async move {
-        retention::prune(&pool_ret, retention_days).await; // run once immediately
-        retention::run(pool_ret, retention_days).await;    // then every 24 h
+        retention::prune(&pool_ret, retention_days).await;
+        retention::run(pool_ret, retention_days).await;
     });
     tracing::info!("🗑️  Retention job spawned (keep {} days)", retention_days);
 
     // ── Router ────────────────────────────────────────────────────────────────
-    // Admin routes — protected by Authorization: Bearer <ADMIN_TOKEN>
     let protected = Router::new()
-        .route("/api/projects",             get(routes::projects::list_projects))
-        .route("/api/projects",             post(routes::projects::create_project))
-        .route("/api/projects/{id}/alerts", post(routes::projects::create_alert))
-        .route("/api/issues",               get(routes::issues::list_issues))
-        .route("/api/issues/{id}",          get(routes::issues::get_issue))
-        .route("/api/issues/{id}",          patch(routes::issues::update_issue))
-        .route("/api/issues/{id}",          delete(routes::issues::delete_issue))
-        .route("/api/stats",                get(routes::stats::get_stats))
+        // Projects
+        .route("/api/projects",                    get(routes::projects::list_projects))
+        .route("/api/projects",                    post(routes::projects::create_project))
+        .route("/api/projects/{id}",               patch(routes::projects::update_project))
+        .route("/api/projects/{id}",               delete(routes::projects::delete_project))
+        .route("/api/projects/{id}/rotate-key",    post(routes::projects::rotate_api_key))
+        // Releases
+        .route("/api/projects/{id}/releases",      get(routes::projects::list_releases))
+        .route("/api/projects/{id}/releases",      post(routes::projects::create_release))
+        // Alerts
+        .route("/api/projects/{id}/alerts",        get(routes::projects::list_alerts))
+        .route("/api/projects/{id}/alerts",        post(routes::projects::create_alert))
+        .route("/api/alerts/{id}",                 patch(routes::projects::update_alert))
+        .route("/api/alerts/{id}",                 delete(routes::projects::delete_alert))
+        // Issues
+        .route("/api/issues",                      get(routes::issues::list_issues))
+        .route("/api/issues/{id}",                 get(routes::issues::get_issue))
+        .route("/api/issues/{id}",                 patch(routes::issues::update_issue))
+        .route("/api/issues/{id}",                 delete(routes::issues::delete_issue))
+        // AI analysis
+        .route("/api/issues/{id}/analyze",         get(routes::analysis::get_analysis))
+        .route("/api/issues/{id}/analyze",         post(routes::analysis::analyze_issue))
+        // Stats
+        .route("/api/stats",                       get(routes::stats::get_stats))
         .layer(middleware::from_fn(auth::require_admin_token));
 
     let cors = {
@@ -161,7 +187,7 @@ async fn main() {
             match origin.parse::<axum::http::HeaderValue>() {
                 Ok(v)  => layer.allow_origin(v),
                 Err(_) => {
-                    tracing::warn!("CORS_ORIGIN '{}' is not a valid header value — using wildcard", origin);
+                    tracing::warn!("CORS_ORIGIN '{}' is not valid — using wildcard", origin);
                     layer.allow_origin(tower_http::cors::Any)
                 }
             }
@@ -172,11 +198,16 @@ async fn main() {
 
     let app = Router::new()
         .route("/health",               get(routes::health::health_check))
-        .route("/api/ingest/{api_key}", post(routes::ingest::handle_ingest))
+        .route("/metrics",              get(routes::metrics::metrics))
+        .route("/api/ingest/{api_key}", post(routes::ingest::handle_ingest)
+            // Ingest body capped at 256 KB — prevents OOM from malicious payloads
+            .layer(DefaultBodyLimit::max(256 * 1024)))
         .route("/ws",                   get(ws::ws_handler))
         .merge(protected)
         .fallback(serve_spa)
         .layer(cors)
+        // Global body limit for all other routes: 64 KB
+        .layer(DefaultBodyLimit::max(64 * 1024))
         .with_state(state);
 
     let port = std::env::var("SERVER_PORT").unwrap_or_else(|_| "8000".into());
