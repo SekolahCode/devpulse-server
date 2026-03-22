@@ -141,7 +141,7 @@ pub async fn get_issue(
     // Latest 10 events (with environment)
     let events = sqlx::query!(
         r#"
-        SELECT id, payload, context, environment, created_at
+        SELECT id, payload, context, environment, breadcrumbs, release, created_at
         FROM events
         WHERE issue_id = $1
         ORDER BY created_at DESC
@@ -157,6 +157,8 @@ pub async fn get_issue(
         "payload":     e.payload,
         "context":     e.context,
         "environment": e.environment,
+        "breadcrumbs": e.breadcrumbs,
+        "release":     e.release,
         "created_at":  e.created_at,
     })).collect();
 

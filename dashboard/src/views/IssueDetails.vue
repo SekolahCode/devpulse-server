@@ -118,9 +118,15 @@
                   {{ event.environment }}
                 </span>
               </div>
-              <span class="text-[11px] text-gray-600 tabular-nums">
-                {{ formatDate(event.created_at) }}
-              </span>
+              <div class="flex items-center gap-2">
+                <span v-if="event.release"
+                      class="text-[10px] font-mono text-gray-500 bg-white/5 px-1.5 py-0.5 rounded">
+                  v{{ event.release }}
+                </span>
+                <span class="text-[11px] text-gray-600 tabular-nums">
+                  {{ formatDate(event.created_at) }}
+                </span>
+              </div>
             </div>
 
             <!-- Stack trace -->
@@ -158,32 +164,110 @@
               </div>
             </div>
 
-            <!-- Collapsible raw details -->
-            <div :class="(event.payload?.exception?.stacktrace?.length || event.breadcrumbs?.length) ? 'border-t border-white/5' : ''">
+            <!-- Fatal error notice -->
+            <div v-if="event.payload?.is_fatal" class="px-4 py-3 border-t border-white/5">
+              <div class="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5">
+                <span class="text-sm shrink-0 mt-px">⚠️</span>
+                <div>
+                  <p class="text-[11px] text-amber-300 font-semibold">
+                    Fatal error{{ event.payload.error_type ? ` (${event.payload.error_type})` : '' }} — captured by shutdown handler
+                  </p>
+                  <p class="text-[11px] text-amber-500/80 mt-0.5">
+                    PHP fatal errors terminate the script before the call stack is available.
+                    Only the error origin file and line are shown above.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Request -->
+            <div v-if="event.payload?.request" class="px-4 py-3 border-t border-white/5">
+              <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-2">Request</p>
+              <div class="flex flex-wrap items-center gap-2">
+                <span :class="methodColor(event.payload.request.method)"
+                      class="text-[11px] font-bold px-2 py-0.5 rounded font-mono">
+                  {{ event.payload.request.method }}
+                </span>
+                <span class="text-[12px] text-gray-300 font-mono break-all leading-relaxed">{{ event.payload.request.url }}</span>
+                <span v-if="event.payload.request.ip" class="text-[11px] text-gray-600 font-mono shrink-0">
+                  {{ event.payload.request.ip }}
+                </span>
+              </div>
+            </div>
+
+            <!-- User -->
+            <div v-if="event.payload?.user" class="px-4 py-3 border-t border-white/5">
+              <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-2">User</p>
+              <div class="flex flex-wrap gap-2">
+                <span v-if="event.payload.user.id"       class="text-[11px] text-gray-400 bg-white/5 px-2 py-0.5 rounded font-mono">ID: {{ event.payload.user.id }}</span>
+                <span v-if="event.payload.user.email"    class="text-[11px] text-gray-400 bg-white/5 px-2 py-0.5 rounded">{{ event.payload.user.email }}</span>
+                <span v-if="event.payload.user.username" class="text-[11px] text-gray-400 bg-white/5 px-2 py-0.5 rounded">{{ event.payload.user.username }}</span>
+              </div>
+            </div>
+
+            <!-- WordPress platform metadata -->
+            <div v-if="event.context?.platform === 'wordpress'" class="px-4 py-3 border-t border-white/5">
+              <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-2">Platform</p>
+              <div class="flex flex-wrap items-center gap-2 mb-2">
+                <span v-if="event.context.wordpress" class="text-[11px] font-semibold px-2 py-0.5 rounded bg-blue-600/20 text-blue-300">
+                  WP {{ event.context.wordpress }}
+                </span>
+                <span v-if="event.context.php" class="text-[11px] font-semibold px-2 py-0.5 rounded bg-purple-600/20 text-purple-300">
+                  PHP {{ event.context.php }}
+                </span>
+                <span v-if="event.context.theme" class="text-[11px] text-gray-400 bg-white/5 px-2 py-0.5 rounded">
+                  🎨 {{ event.context.theme }}
+                </span>
+                <span v-if="event.context.memory" class="text-[11px] text-gray-500 bg-white/5 px-2 py-0.5 rounded font-mono">
+                  {{ formatMemory(event.context.memory) }} peak mem
+                </span>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <span v-if="event.context.is_admin"    class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 font-semibold">admin</span>
+                <span v-if="event.context.multisite"   class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-semibold">multisite</span>
+                <span v-if="event.context.wp_debug"    class="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 font-semibold">WP_DEBUG</span>
+                <span v-if="event.context.wp_debug_log" class="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 font-semibold">DEBUG_LOG</span>
+              </div>
+            </div>
+
+            <!-- Active plugins (collapsible) -->
+            <div v-if="event.context?.active_plugins?.length" class="px-4 py-3 border-t border-white/5">
+              <div class="flex items-center justify-between mb-1.5">
+                <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium">Active plugins</p>
+                <button @click="togglePlugins(event.id)"
+                  class="text-[10px] text-gray-600 hover:text-gray-400 transition-colors tabular-nums">
+                  {{ expandedPlugins.has(event.id)
+                      ? '▲ hide'
+                      : `▼ ${event.context.plugin_count ?? event.context.active_plugins.length} plugins` }}
+                </button>
+              </div>
+              <div v-if="expandedPlugins.has(event.id)"
+                   class="font-mono text-[11px] text-gray-500 space-y-0.5 max-h-36 overflow-y-auto
+                          scrollbar-thin scrollbar-thumb-white/10">
+                <div v-for="p in event.context.active_plugins" :key="p"
+                     class="truncate hover:text-gray-400 transition-colors">{{ p }}</div>
+              </div>
+              <div v-else class="text-[11px] text-gray-700 italic">Click to expand</div>
+            </div>
+
+            <!-- Extra context: non-WP platforms, or raw fallback -->
+            <div v-if="event.context && event.context.platform !== 'wordpress'" class="border-t border-white/5">
               <details class="group">
                 <summary class="flex items-center justify-between px-4 py-2.5 text-[11px] text-gray-600
                                hover:text-gray-400 cursor-pointer select-none list-none transition-colors">
-                  <span>Raw payload / context</span>
+                  <span>Extra context</span>
                   <span class="transition-transform group-open:rotate-180 inline-block">▾</span>
                 </summary>
-                <div class="px-4 pb-4 space-y-3">
-                  <template v-if="event.payload?.user">
-                    <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium">User</p>
-                    <pre class="text-[11px] text-gray-400 bg-[#0a0a10] rounded-lg p-3 overflow-x-auto">{{ fmt(event.payload.user) }}</pre>
-                  </template>
-                  <template v-if="event.payload?.request">
-                    <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium">Request</p>
-                    <pre class="text-[11px] text-gray-400 bg-[#0a0a10] rounded-lg p-3 overflow-x-auto">{{ fmt(event.payload.request) }}</pre>
-                  </template>
-                  <template v-if="event.context">
-                    <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium">Extra context</p>
-                    <pre class="text-[11px] text-gray-400 bg-[#0a0a10] rounded-lg p-3 overflow-x-auto">{{ fmt(event.context) }}</pre>
-                  </template>
-                  <template v-if="!event.payload?.user && !event.payload?.request && !event.context">
-                    <p class="text-[11px] text-gray-600 italic">No additional context captured</p>
-                  </template>
+                <div class="px-4 pb-4">
+                  <pre class="text-[11px] text-gray-400 bg-[#0a0a10] rounded-lg p-3 overflow-x-auto">{{ fmt(event.context) }}</pre>
                 </div>
               </details>
+            </div>
+
+            <!-- Empty state -->
+            <div v-if="!event.payload?.is_fatal && !event.payload?.request && !event.payload?.user && !event.context"
+                 class="px-4 py-3 border-t border-white/5">
+              <p class="text-[11px] text-gray-600 italic">No additional context captured</p>
             </div>
 
           </div>
@@ -289,15 +373,23 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 
-const route         = useRoute()
-const router        = useRouter()
-const issue         = ref(null)
-const loading       = ref(true)
-const ai            = ref(null)
-const aiLoading     = ref(false)
-const aiError       = ref(null)
-const showAssignee  = ref(false)
-const assigneeInput = ref('')
+const route           = useRoute()
+const router          = useRouter()
+const issue           = ref(null)
+const loading         = ref(true)
+const ai              = ref(null)
+const aiLoading       = ref(false)
+const aiError         = ref(null)
+const showAssignee    = ref(false)
+const assigneeInput   = ref('')
+const expandedPlugins = ref(new Set())
+
+function togglePlugins(eventId) {
+  const s = new Set(expandedPlugins.value)
+  if (s.has(eventId)) s.delete(eventId)
+  else s.add(eventId)
+  expandedPlugins.value = s
+}
 
 onMounted(async () => {
   try {
@@ -347,6 +439,18 @@ async function setAssignee() {
   issue.value = { ...issue.value, assignee: val || null }
   showAssignee.value = false
   assigneeInput.value = ''
+}
+
+const methodColor = (m) =>
+  ({ GET: 'bg-emerald-500/20 text-emerald-400', POST: 'bg-blue-500/20 text-blue-400',
+     PUT: 'bg-amber-500/20 text-amber-400', PATCH: 'bg-amber-500/20 text-amber-400',
+     DELETE: 'bg-red-500/20 text-red-400' })[m] ?? 'bg-gray-700/50 text-gray-400'
+
+function formatMemory(bytes) {
+  if (!bytes) return ''
+  if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB'
+  if (bytes >= 1048576)    return (bytes / 1048576).toFixed(0) + ' MB'
+  return (bytes / 1024).toFixed(0) + ' KB'
 }
 
 const priorityBadge = (p) =>
