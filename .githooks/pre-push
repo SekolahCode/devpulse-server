@@ -1,0 +1,29 @@
+#!/bin/sh
+# Auto-regenerate sqlx offline query cache before push.
+# Requires DATABASE_URL to be set (loaded from .env if present).
+
+set -e
+
+if [ -f .env ]; then
+  # Export vars from .env (skip comments and blank lines)
+  export $(grep -v '^#' .env | grep -v '^$' | xargs)
+fi
+
+if [ -z "$DATABASE_URL" ]; then
+  echo "⚠️  DATABASE_URL not set — skipping sqlx prepare"
+  exit 0
+fi
+
+echo "🔄 Running cargo sqlx prepare..."
+cargo sqlx prepare --check 2>/dev/null || {
+  echo "📝 Query cache outdated — regenerating..."
+  cargo sqlx prepare
+  git add .sqlx/
+  # Amend the last commit to include the updated cache if it has staged changes
+  if ! git diff --cached --quiet; then
+    git commit --amend --no-edit
+    echo "✅ sqlx cache updated and amended into last commit"
+  fi
+}
+
+echo "✅ sqlx cache is up to date"
