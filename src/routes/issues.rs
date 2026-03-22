@@ -13,6 +13,7 @@ pub struct IssueQuery {
     pub status:      Option<String>,   // unresolved | resolved | ignored
     pub level:       Option<String>,   // error | warning | info
     pub environment: Option<String>,   // production | staging | development
+    pub release:     Option<String>,   // filter by last_release version
     pub search:      Option<String>,   // full-text search on title
     pub limit:       Option<i64>,
     pub offset:      Option<i64>,
@@ -44,19 +45,21 @@ pub async fn list_issues(
             p.name AS project_name
         FROM issues i
         JOIN projects p ON p.id = i.project_id
-        WHERE ($1::uuid IS NULL OR i.project_id = $1)
+        WHERE ($1::uuid IS NULL OR i.project_id  = $1)
           AND i.status = $2
-          AND ($3::text IS NULL OR i.level       = $3)
-          AND ($4::text IS NULL OR i.title ILIKE $4)
-          AND ($5::text IS NULL OR i.environment = $5)
+          AND ($3::text IS NULL OR i.level        = $3)
+          AND ($4::text IS NULL OR i.title ILIKE  $4)
+          AND ($5::text IS NULL OR i.environment  = $5)
+          AND ($6::text IS NULL OR i.last_release = $6)
         ORDER BY i.last_seen DESC
-        LIMIT $6 OFFSET $7
+        LIMIT $7 OFFSET $8
         "#,
         params.project_id as Option<Uuid>,
         status,
         params.level.clone() as Option<String>,
         search.clone() as Option<String>,
         params.environment.clone() as Option<String>,
+        params.release.clone() as Option<String>,
         limit,
         offset
     )
@@ -67,17 +70,19 @@ pub async fn list_issues(
     let total = sqlx::query_scalar!(
         r#"
         SELECT COUNT(*) FROM issues i
-        WHERE ($1::uuid IS NULL OR i.project_id = $1)
+        WHERE ($1::uuid IS NULL OR i.project_id  = $1)
           AND i.status = $2
-          AND ($3::text IS NULL OR i.level       = $3)
-          AND ($4::text IS NULL OR i.title ILIKE $4)
-          AND ($5::text IS NULL OR i.environment = $5)
+          AND ($3::text IS NULL OR i.level        = $3)
+          AND ($4::text IS NULL OR i.title ILIKE  $4)
+          AND ($5::text IS NULL OR i.environment  = $5)
+          AND ($6::text IS NULL OR i.last_release = $6)
         "#,
         params.project_id as Option<Uuid>,
         status,
         params.level as Option<String>,
         search as Option<String>,
-        params.environment as Option<String>
+        params.environment as Option<String>,
+        params.release as Option<String>
     )
     .fetch_one(&state.pg_pool)
     .await?

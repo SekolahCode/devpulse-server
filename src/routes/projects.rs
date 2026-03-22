@@ -120,19 +120,33 @@ pub async fn list_releases(
     State(state):     State<AppState>,
 ) -> Result<Json<Value>, AppError> {
     let rows = sqlx::query!(
-        "SELECT id, version, ref, url, deployed_at FROM releases
-         WHERE project_id = $1 ORDER BY deployed_at DESC LIMIT 50",
+        r#"
+        SELECT
+            r.id, r.version, r.ref, r.url, r.deployed_at,
+            COUNT(i.id) FILTER (WHERE i.first_release = r.version)                                    AS new_issues,
+            COUNT(i.id) FILTER (WHERE i.last_release  = r.version AND i.status = 'unresolved')        AS open_issues,
+            COUNT(i.id) FILTER (WHERE i.last_release  = r.version AND i.status = 'resolved')          AS resolved_issues
+        FROM releases r
+        LEFT JOIN issues i ON i.project_id = r.project_id
+        WHERE r.project_id = $1
+        GROUP BY r.id, r.version, r.ref, r.url, r.deployed_at
+        ORDER BY r.deployed_at DESC
+        LIMIT 100
+        "#,
         project_id
     )
     .fetch_all(&state.pg_pool)
     .await?;
 
     let data: Vec<Value> = rows.iter().map(|r| json!({
-        "id":          r.id,
-        "version":     r.version,
-        "ref":         r.r#ref,
-        "url":         r.url,
-        "deployed_at": r.deployed_at,
+        "id":               r.id,
+        "version":          r.version,
+        "ref":              r.r#ref,
+        "url":              r.url,
+        "deployed_at":      r.deployed_at,
+        "new_issues":       r.new_issues.unwrap_or(0),
+        "open_issues":      r.open_issues.unwrap_or(0),
+        "resolved_issues":  r.resolved_issues.unwrap_or(0),
     })).collect();
 
     Ok(Json(json!({ "data": data })))
@@ -319,4 +333,21 @@ pub async fn delete_alert(
     }
 
     Ok(Json(json!({ "deleted": true, "id": alert_id })))
+}
+
+// DELETE /api/releases/:id
+pub async fn delete_release(
+    Path(release_id): Path<Uuid>,
+    State(state):     State<AppState>,
+) -> Result<Json<Value>, AppError> {
+    let rows = sqlx::query!("DELETE FROM releases WHERE id = $1", release_id)
+        .execute(&state.pg_pool)
+        .await?
+        .rows_affected();
+
+    if rows == 0 {
+        return Err(AppError::NotFound("Release not found".into()));
+    }
+
+    Ok(Json(json!({ "deleted": true, "id": release_id })))
 }

@@ -8,7 +8,17 @@
           Projects
         </router-link>
         <span class="text-gray-700">/</span>
-        <h1 class="text-[15px] font-semibold text-white">Issues</h1>
+        <span class="text-[15px] font-semibold text-white">Issues</span>
+        <span class="text-gray-700">·</span>
+        <router-link
+          :to="`/projects/${route.params.id}/releases`"
+          class="text-[13px] text-gray-500 hover:text-violet-400 transition-colors flex items-center gap-1"
+        >
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="8" cy="8" r="6"/><line x1="8" y1="5" x2="8" y2="8"/><line x1="8" y1="8" x2="10.5" y2="10.5"/>
+          </svg>
+          Releases
+        </router-link>
       </div>
 
       <!-- Status tabs -->
@@ -65,6 +75,15 @@
         <option value="production">Production</option>
         <option value="staging">Staging</option>
         <option value="development">Development</option>
+      </select>
+      <select
+        v-model="release"
+        @change="refetch"
+        class="bg-[#111119] border border-white/6 rounded-xl px-3 py-2.5 text-sm text-gray-300
+               focus:outline-none focus:border-violet-500/50 transition-colors"
+      >
+        <option value="">All versions</option>
+        <option v-for="r in releases" :key="r.id" :value="r.version">v{{ r.version }}</option>
       </select>
     </div>
 
@@ -256,21 +275,29 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useIssuesStore } from '../stores/issues'
+import axios from 'axios'
 
 const route  = useRoute()
 const store  = useIssuesStore()
 const status = ref('unresolved')
 const search = ref('')
 const environment = ref('')
+const release  = ref('')
+const releases = ref([])
 const openMenu = ref(null)
 const selected = ref(new Set())
 
 let searchTimer = null
 
-onMounted(() => {
+onMounted(async () => {
   store.fetchStats()
   store.fetch(route.params.id, status.value)
   document.addEventListener('click', closeMenu)
+  // Load releases for filter dropdown
+  try {
+    const { data } = await axios.get(`/api/projects/${route.params.id}/releases`)
+    releases.value = data.data
+  } catch {}
 })
 
 onUnmounted(() => {
@@ -289,12 +316,12 @@ function action(type, id) {
 function setStatus(s) {
   status.value = s
   selected.value = new Set()
-  store.fetch(route.params.id, s, { search: search.value, environment: environment.value })
+  store.fetch(route.params.id, s, { search: search.value, environment: environment.value, release: release.value })
 }
 
 function refetch() {
   selected.value = new Set()
-  store.fetch(route.params.id, status.value, { search: search.value, environment: environment.value })
+  store.fetch(route.params.id, status.value, { search: search.value, environment: environment.value, release: release.value })
 }
 
 function onSearch() {
@@ -303,7 +330,7 @@ function onSearch() {
 }
 
 function loadMore() {
-  store.fetchMore(route.params.id, status.value, search.value, environment.value)
+  store.fetchMore(route.params.id, status.value, search.value, environment.value, release.value)
 }
 
 // ── Bulk selection ────────────────────────────────────────────────────────────

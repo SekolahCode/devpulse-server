@@ -14,7 +14,7 @@ export const useIssuesStore = defineStore("issues", {
   }),
 
   actions: {
-    async fetch(projectId, status = "unresolved", { search = "", environment = "", reset = true } = {}) {
+    async fetch(projectId, status = "unresolved", { search = "", environment = "", release = "", reset = true } = {}) {
       if (reset) {
         this.loading = true;
         this.offset  = 0;
@@ -30,6 +30,7 @@ export const useIssuesStore = defineStore("issues", {
             status,
             search:      search       || undefined,
             environment: environment  || undefined,
+            release:     release      || undefined,
             limit:       50,
             offset:      reset ? 0 : this.offset,
           },
@@ -50,9 +51,9 @@ export const useIssuesStore = defineStore("issues", {
       }
     },
 
-    async fetchMore(projectId, status, search, environment) {
+    async fetchMore(projectId, status, search, environment, release = "") {
       if (!this.hasMore || this.loadingMore) return;
-      await this.fetch(projectId, status, { search, environment, reset: false });
+      await this.fetch(projectId, status, { search, environment, release, reset: false });
     },
 
     async fetchStats() {

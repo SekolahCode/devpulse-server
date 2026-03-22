@@ -162,6 +162,8 @@ async fn main() {
         // Releases
         .route("/api/projects/{id}/releases",      get(routes::projects::list_releases))
         .route("/api/projects/{id}/releases",      post(routes::projects::create_release))
+        // Releases (delete)
+        .route("/api/releases/{id}",               delete(routes::projects::delete_release))
         // Alerts
         .route("/api/projects/{id}/alerts",        get(routes::projects::list_alerts))
         .route("/api/projects/{id}/alerts",        post(routes::projects::create_alert))
