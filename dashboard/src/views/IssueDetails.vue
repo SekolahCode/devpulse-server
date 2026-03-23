@@ -180,6 +180,34 @@
               </div>
             </div>
 
+            <!-- Laravel command context -->
+            <div v-if="event.payload?.command" class="px-4 py-3 border-t border-white/5">
+              <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-2">Artisan Command</p>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-[12px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">
+                  php artisan {{ event.payload.command }}
+                </span>
+                <span v-if="event.payload.exit_code !== undefined"
+                      class="text-[11px] font-mono text-red-400 bg-red-500/10 px-2 py-0.5 rounded">
+                  exit {{ event.payload.exit_code }}
+                </span>
+                <span v-if="event.payload.input?.trim()"
+                      class="text-[11px] text-gray-400 font-mono">
+                  {{ event.payload.input }}
+                </span>
+              </div>
+              <div v-if="event.payload.laravel || event.payload.php" class="flex gap-2 mt-2">
+                <span v-if="event.payload.laravel"
+                      class="text-[10px] text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded font-mono">
+                  Laravel {{ event.payload.laravel }}
+                </span>
+                <span v-if="event.payload.php"
+                      class="text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded font-mono">
+                  PHP {{ event.payload.php }}
+                </span>
+              </div>
+            </div>
+
             <!-- Request -->
             <div v-if="event.payload?.request" class="px-4 py-3 border-t border-white/5">
               <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-2">Request</p>

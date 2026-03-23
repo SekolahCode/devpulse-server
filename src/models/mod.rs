@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IngestPayload {
@@ -13,6 +14,11 @@ pub struct IngestPayload {
     pub request:     Option<serde_json::Value>,
     pub breadcrumbs: Option<Vec<Breadcrumb>>,
     pub timestamp:   Option<String>,
+    /// Captures all SDK-specific extra fields (e.g. Laravel's command, exit_code,
+    /// laravel version, php version) so they are preserved in the stored payload
+    /// and available in the dashboard without being silently dropped.
+    #[serde(flatten)]
+    pub extra:       HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
