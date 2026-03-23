@@ -60,6 +60,7 @@ services:
       REDIS_URL: redis://redis:6379
       SERVER_PORT: "8000"
       RUST_LOG: ${RUST_LOG:-info}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
       # SMTP — leave blank to disable email alerts
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
