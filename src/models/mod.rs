@@ -25,6 +25,7 @@ pub struct IngestPayload {
 pub struct ExceptionInfo {
     pub r#type:     Option<String>,
     pub message:    String,
+    pub code:       Option<serde_json::Value>,
     pub stacktrace: Option<Vec<StackFrame>>,
 }
 
@@ -33,7 +34,10 @@ pub struct StackFrame {
     pub file:     Option<String>,
     pub line:     Option<u32>,
     pub function: Option<String>,
-    pub context:  Option<String>,
+    /// Context may be a plain string or a rich source-context object
+    /// (e.g. `{"start": 10, "lines": {"10": "...", "11": "..."}}`)
+    /// from the PHP SDK.  Accept any JSON value so neither shape is rejected.
+    pub context:  Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

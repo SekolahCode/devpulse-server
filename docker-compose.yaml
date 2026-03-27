@@ -47,11 +47,10 @@ services:
 
   # ── DevPulse App ──────────────────────────────────────────────────────────
   devpulse:
-    image: sekolahcode/devpulse-server:latest
-    # To build locally instead: replace the image line above with:
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # image: sekolahcode/devpulse-server:latest
     restart: unless-stopped
     ports:
       - "${SERVER_PORT:-8000}:8000"
