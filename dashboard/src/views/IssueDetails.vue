@@ -327,31 +327,31 @@
             </div>
 
             <!-- ── Routing ─────────────────────────────────────────────────── -->
-            <div v-if="event.context?.request?.routing" class="border-t border-white/5 px-5 py-4">
+            <div v-if="event.payload?.routing" class="border-t border-white/5 px-5 py-4">
               <p class="text-[11px] font-semibold text-gray-500 mb-3">Routing</p>
-              <div v-if="event.context.request.routing.controller"
+              <div v-if="event.payload.routing.controller"
                    class="flex items-baseline gap-2 py-2 border-b border-white/4">
                 <span class="text-[10px] font-mono text-gray-600 uppercase tracking-wider shrink-0 w-36">Controller</span>
                 <span class="flex-1 border-b border-dotted border-white/8 self-end mb-0.5 mx-1"></span>
-                <span class="text-[11px] font-mono text-gray-300 text-right break-all">{{ event.context.request.routing.controller }}</span>
+                <span class="text-[11px] font-mono text-gray-300 text-right break-all">{{ event.payload.routing.controller }}</span>
               </div>
-              <div v-if="event.context.request.routing.name"
+              <div v-if="event.payload.routing.name"
                    class="flex items-baseline gap-2 py-2 border-b border-white/4">
                 <span class="text-[10px] font-mono text-gray-600 uppercase tracking-wider shrink-0 w-36">Route name</span>
                 <span class="flex-1 border-b border-dotted border-white/8 self-end mb-0.5 mx-1"></span>
-                <span class="text-[11px] font-mono text-violet-400 text-right">{{ event.context.request.routing.name }}</span>
+                <span class="text-[11px] font-mono text-violet-400 text-right">{{ event.payload.routing.name }}</span>
               </div>
-              <div v-if="event.context.request.routing.middleware?.length"
+              <div v-if="event.payload.routing.middleware?.length"
                    class="flex items-baseline gap-2 py-2 border-b border-white/4">
                 <span class="text-[10px] font-mono text-gray-600 uppercase tracking-wider shrink-0 w-36">Middleware</span>
                 <span class="flex-1 border-b border-dotted border-white/8 self-end mb-0.5 mx-1"></span>
-                <span class="text-[11px] font-mono text-gray-400 text-right">{{ event.context.request.routing.middleware.join(', ') }}</span>
+                <span class="text-[11px] font-mono text-gray-400 text-right">{{ event.payload.routing.middleware.join(', ') }}</span>
               </div>
               <!-- Routing parameters -->
               <div class="mt-4">
                 <p class="text-[10px] font-mono text-gray-600 uppercase tracking-wider mb-2">Routing parameters</p>
-                <template v-if="Object.keys(event.context.request.routing.parameters ?? {}).length">
-                  <div v-for="(val, key) in event.context.request.routing.parameters" :key="key"
+                <template v-if="Object.keys(event.payload.routing.parameters ?? {}).length">
+                  <div v-for="(val, key) in event.payload.routing.parameters" :key="key"
                        class="flex items-baseline gap-2 py-1.5 border-b border-white/4 last:border-0">
                     <span class="text-[11px] font-mono text-gray-600 shrink-0 w-36 truncate">{{ key }}</span>
                     <span class="flex-1 border-b border-dotted border-white/8 self-end mb-0.5 mx-1"></span>
