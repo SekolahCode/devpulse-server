@@ -143,6 +143,12 @@
                       class="text-[11px] text-gray-500 font-mono truncate max-w-xs">
                   {{ event.payload.request.url }}
                 </span>
+                <!-- WordPress plugin attribution badge -->
+                <span v-if="event.payload?.plugin"
+                      :class="pluginBadgeColor(event.payload.plugin.type)"
+                      class="text-[10px] font-bold px-2 py-0.5 rounded font-mono tracking-wide">
+                  {{ pluginBadgeLabel(event.payload.plugin) }}
+                </span>
               </div>
             </div>
 
@@ -164,6 +170,43 @@
                   v{{ event.release }}
                 </span>
                 <span class="text-[11px] text-gray-600 tabular-nums">{{ formatDate(event.created_at) }}</span>
+              </div>
+            </div>
+
+            <!-- ── Performance Vitals card (Lighthouse style) ───────────── -->
+            <div v-if="isVitalsEvent(event)" class="px-6 py-5 border-b border-white/5">
+              <p class="text-[11px] font-semibold text-gray-400 mb-5 flex items-center gap-2">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-violet-400 shrink-0">
+                  <path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><path d="M22 2l-5 5"/><path d="M17 2h5v5"/>
+                </svg>
+                Performance Vitals
+              </p>
+              <div class="grid grid-cols-3 sm:grid-cols-5 gap-4">
+                <div v-for="m in getVitals(event)" :key="m.key" class="flex flex-col items-center gap-2.5">
+                  <!-- Score ring -->
+                  <div class="relative w-15 h-15">
+                    <svg viewBox="0 0 36 36" class="w-full h-full -rotate-90">
+                      <!-- track -->
+                      <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor"
+                              stroke-width="2.2" class="text-white/6"/>
+                      <!-- arc: circumference ≈ 100, so dasharray = score/100 * 100 -->
+                      <circle cx="18" cy="18" r="15.9" fill="none"
+                              stroke-width="2.5" stroke-linecap="round"
+                              :stroke="m.color"
+                              :stroke-dasharray="`${m.score} 100`"/>
+                    </svg>
+                    <!-- score number -->
+                    <span class="absolute inset-0 flex items-center justify-center text-[15px] font-bold"
+                          :style="{ color: m.color }">
+                      {{ m.score }}
+                    </span>
+                  </div>
+                  <!-- label + raw value -->
+                  <div class="text-center">
+                    <p class="text-[11px] font-semibold text-gray-300 leading-tight">{{ m.label }}</p>
+                    <p class="text-[10px] text-gray-600 tabular-nums mt-0.5">{{ m.raw }} / 100</p>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -196,6 +239,11 @@
                         </span>
                       </div>
                       <div class="flex items-center gap-2 shrink-0">
+                        <span v-if="group.frame.plugin && group.frame.plugin.type !== 'core'"
+                              :class="pluginBadgeColor(group.frame.plugin.type)"
+                              class="text-[10px] font-mono px-1.5 py-0.5 rounded">
+                          {{ group.frame.plugin.name }}
+                        </span>
                         <span class="text-[11px] text-gray-600 font-mono">
                           {{ shortPath(group.frame.file) }}:{{ group.frame.line }}
                         </span>
@@ -601,9 +649,69 @@ function toggleVendorGroup(eventIdx, groupIdx) {
   expandedVendorGroups.value = s
 }
 
+// ── Performance Vitals ────────────────────────────────────────────────────
+
+function isVitalsEvent(event) {
+  return event.payload?.message === 'Performance vitals' && !!event.context?.vitals
+}
+
+// Thresholds based on Google Lighthouse / Web Vitals standards
+const VITAL_META = {
+  lcp:       { label: 'LCP',       unit: 'ms',  good: 2500,  poor: 4000  },
+  ttfb:      { label: 'TTFB',      unit: 'ms',  good: 800,   poor: 1800  },
+  inp:       { label: 'INP',       unit: 'ms',  good: 200,   poor: 500   },
+  page_load: { label: 'Load',      unit: 'ms',  good: 3000,  poor: 6000  },
+  cls:       { label: 'CLS',       unit: '',    good: 0.1,   poor: 0.25  },
+}
+
+function vitalScore(key, value) {
+  const m = VITAL_META[key]
+  if (!m) return 50
+  // Linear interpolation: good threshold → 90, poor threshold → 10
+  if (value <= m.good) return Math.round(90 + (1 - value / m.good) * 10)
+  if (value >= m.poor) return Math.max(0, Math.round(10 - (value - m.poor) / m.poor * 10))
+  const ratio = (value - m.good) / (m.poor - m.good)
+  return Math.round(90 - ratio * 80)
+}
+
+function vitalColor(score) {
+  if (score >= 90) return '#34d399' // emerald-400
+  if (score >= 50) return '#fbbf24' // amber-400
+  return '#f87171'                  // red-400
+}
+
+function getVitals(event) {
+  const v = event.context?.vitals ?? {}
+  return Object.entries(VITAL_META)
+    .filter(([key]) => v[key] !== undefined)
+    .map(([key, meta]) => {
+      const value = v[key]
+      const score = vitalScore(key, value)
+      return {
+        key,
+        label: meta.label,
+        raw:   meta.unit === 'ms' ? `${value}ms` : value.toFixed(3),
+        score,
+        color: vitalColor(score),
+      }
+    })
+}
+
 function isVendorFrame(frame) {
   const file = (frame.file ?? '').replace(/\\/g, '/')
   return file.includes('/vendor/') || file.includes('\\vendor\\')
+    || frame.plugin?.type === 'core'
+}
+
+function pluginBadgeColor(type) {
+  return ({ plugin: 'bg-indigo-500/20 text-indigo-300', 'mu-plugin': 'bg-violet-500/20 text-violet-300',
+            theme: 'bg-teal-500/20 text-teal-300' })[type] ?? 'bg-gray-700/50 text-gray-400'
+}
+
+function pluginBadgeLabel(plugin) {
+  if (!plugin) return ''
+  const prefix = ({ plugin: '🧩', 'mu-plugin': '🔌', theme: '🎨', core: 'WP' })[plugin.type] ?? ''
+  return plugin.name ? `${prefix} ${plugin.name}` : prefix
 }
 
 function groupFrames(frames) {
