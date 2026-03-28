@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT i.id, i.title, i.level, p.platform\n        FROM issues i\n        JOIN projects p ON p.id = i.project_id\n        WHERE i.id = $1\n        ",
+  "query": "\n        SELECT i.id, i.title, i.level, i.event_count, p.platform\n        FROM issues i\n        JOIN projects p ON p.id = i.project_id\n        WHERE i.id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -20,6 +20,11 @@
       },
       {
         "ordinal": 3,
+        "name": "event_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
         "name": "platform",
         "type_info": "Varchar"
       }
@@ -33,8 +38,9 @@
       false,
       false,
       true,
+      true,
       true
     ]
   },
-  "hash": "4a22918aaf8591e233efbcff561ead59fbafe40a90b41ecaf53e261f4e3ee7ab"
+  "hash": "b6527a1a81d37098b8c1e07388282835e5317072c537f368198724089b47e7c3"
 }

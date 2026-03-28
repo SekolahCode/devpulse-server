@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT root_cause, explanation, fix_suggestion, code_example,\n               severity, prevention, model, analyzed_at\n        FROM ai_analyses\n        WHERE issue_id = $1\n        ",
+  "query": "\n        SELECT root_cause, explanation, fix_suggestion, code_example,\n               severity, prevention, model, model_auto, model_reason, analyzed_at\n        FROM ai_analyses\n        WHERE issue_id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -40,6 +40,16 @@
       },
       {
         "ordinal": 7,
+        "name": "model_auto",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "model_reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
         "name": "analyzed_at",
         "type_info": "Timestamptz"
       }
@@ -57,8 +67,10 @@
       false,
       true,
       false,
+      false,
+      true,
       false
     ]
   },
-  "hash": "19974e312a86d5bfd63339d9bbe8bab4a6c3026aa005d206a49ac8adc4757301"
+  "hash": "0a6580cccb17fa2e236af172664e30fd5863a9d6ee5d87ca3fd7246717533944"
 }

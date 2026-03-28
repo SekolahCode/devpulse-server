@@ -1,9 +1,9 @@
 use axum::{extract::{Path, State}, Json};
 use serde_json::{json, Value};
 use uuid::Uuid;
-use crate::{ai::{select_model, AnalysisContext, Model}, errors::AppError, AppState};
+use crate::{ai::{select_model, AnalysisContext, ApiKeys, Model}, errors::AppError, AppState};
 
-/// GET /api/issues/:id/analyze — return cached analysis without calling Claude.
+/// GET /api/issues/:id/analyze — return cached analysis without calling an AI provider.
 pub async fn get_analysis(
     Path(id):     Path<Uuid>,
     State(state): State<AppState>,
@@ -40,18 +40,26 @@ pub async fn get_analysis(
 ///
 /// Optional JSON body:
 /// ```json
-/// { "model": "auto" | "haiku" | "sonnet" | "opus" }
+/// { "model": "auto" | "haiku" | "sonnet" | "opus" | "gpt-4o-mini" | "gpt-4o" | "gemini-flash" | "gemini-pro" }
 /// ```
 /// When omitted or `"auto"`, the model is selected automatically based on
-/// issue complexity signals (stack depth, level, event count, exception chains).
+/// issue complexity signals, using the best available provider.
 pub async fn analyze_issue(
     Path(id):     Path<Uuid>,
     State(state): State<AppState>,
     body:         Option<Json<Value>>,
 ) -> Result<Json<Value>, AppError> {
-    let api_key = state.anthropic_key.clone().ok_or_else(|| {
-        AppError::BadRequest("ANTHROPIC_API_KEY is not configured on this server".into())
-    })?;
+    let keys = ApiKeys {
+        anthropic: state.anthropic_key.as_deref(),
+        openai:    state.openai_key.as_deref(),
+        gemini:    state.gemini_key.as_deref(),
+    };
+
+    if !keys.any() {
+        return Err(AppError::BadRequest(
+            "No AI provider keys configured. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY.".into()
+        ));
+    }
 
     let model_request = body.as_ref()
         .and_then(|b| b.get("model"))
@@ -144,14 +152,14 @@ pub async fn analyze_issue(
             let ctx = AnalysisContext {
                 stacktrace_frames:   frame_count,
                 level:               issue.level.clone().unwrap_or_default(),
-                event_count:         issue.event_count.unwrap_or(0),
+                event_count:         issue.event_count.unwrap_or(0) as i64,
                 has_exception_chain,
                 is_vitals,
             };
-            let (m, reason) = select_model(&ctx);
+            let (m, reason) = select_model(&ctx, &keys);
             (m, true, Some(reason.to_string()))
         } else {
-            let m = Model::from_str(&model_request).unwrap_or(Model::Sonnet);
+            let m = Model::from_str(&model_request).unwrap_or(Model::ClaudeSonnet);
             (m, false, None)
         };
 
@@ -160,10 +168,10 @@ pub async fn analyze_issue(
         model.display_name()
     );
 
-    // ── Call Claude ───────────────────────────────────────────────────────────
+    // ── Call AI provider ──────────────────────────────────────────────────────
     let analysis = crate::ai::analyse_issue(
         &state.http_client,
-        &api_key,
+        &keys,
         &issue.title,
         &stacktrace,
         platform,

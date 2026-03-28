@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO ai_analyses\n            (issue_id, root_cause, explanation, fix_suggestion, code_example,\n             severity, prevention, model, model_auto, model_reason)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n        ON CONFLICT (issue_id) DO UPDATE SET\n            root_cause     = EXCLUDED.root_cause,\n            explanation    = EXCLUDED.explanation,\n            fix_suggestion = EXCLUDED.fix_suggestion,\n            code_example   = EXCLUDED.code_example,\n            severity       = EXCLUDED.severity,\n            prevention     = EXCLUDED.prevention,\n            model          = EXCLUDED.model,\n            model_auto     = EXCLUDED.model_auto,\n            model_reason   = EXCLUDED.model_reason,\n            analyzed_at    = NOW()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "99941229d450743eb12ab432e996a0beb5fc1ed63765c34f7b39f8019d94057a"
+}

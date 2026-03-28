@@ -76,6 +76,8 @@ pub struct AppState {
     pub rate_limiter:  Arc<RateLimiter>,
     pub http_client:   Client,
     pub anthropic_key: Option<String>,
+    pub openai_key:    Option<String>,
+    pub gemini_key:    Option<String>,
 }
 
 #[tokio::main]
@@ -120,10 +122,19 @@ async fn main() {
         .expect("Failed to build HTTP client");
 
     let anthropic_key = std::env::var("ANTHROPIC_API_KEY").ok().filter(|k| !k.is_empty());
-    if anthropic_key.is_some() {
-        tracing::info!("🤖 AI analysis enabled (ANTHROPIC_API_KEY configured)");
+    let openai_key    = std::env::var("OPENAI_API_KEY").ok().filter(|k| !k.is_empty());
+    let gemini_key    = std::env::var("GEMINI_API_KEY").ok().filter(|k| !k.is_empty());
+
+    let ai_providers: Vec<&str> = [
+        anthropic_key.as_ref().map(|_| "Anthropic"),
+        openai_key.as_ref().map(|_| "OpenAI"),
+        gemini_key.as_ref().map(|_| "Google"),
+    ].into_iter().flatten().collect();
+
+    if ai_providers.is_empty() {
+        tracing::warn!("⚠️  No AI provider keys set — AI analysis endpoint will return 400");
     } else {
-        tracing::warn!("⚠️  ANTHROPIC_API_KEY not set — AI analysis endpoint will return 400");
+        tracing::info!("🤖 AI analysis enabled ({})", ai_providers.join(", "));
     }
 
     let state = AppState {
@@ -133,6 +144,8 @@ async fn main() {
         rate_limiter,
         http_client,
         anthropic_key,
+        openai_key,
+        gemini_key,
     };
 
     // ── Background: event worker ──────────────────────────────────────────────
@@ -177,6 +190,7 @@ async fn main() {
         // AI analysis
         .route("/api/issues/{id}/analyze",         get(routes::analysis::get_analysis))
         .route("/api/issues/{id}/analyze",         post(routes::analysis::analyze_issue))
+        .route("/api/ai/providers",                get(routes::providers::get_providers))
         // Stats
         .route("/api/stats",                       get(routes::stats::get_stats))
         .route("/api/stats/chart",                 get(routes::chart::get_chart_stats))

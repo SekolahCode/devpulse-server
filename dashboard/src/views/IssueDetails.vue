@@ -536,19 +536,27 @@
 
           <div class="flex items-center gap-2 ml-auto">
             <!-- Model picker -->
-            <div class="flex items-center bg-[#111119] border border-white/6 rounded-lg p-0.5 gap-0.5">
-              <button
-                v-for="m in MODEL_OPTIONS" :key="m.value"
-                @click="selectedModel = m.value"
-                :class="selectedModel === m.value
-                  ? 'bg-[#1e1e30] text-white'
-                  : 'text-gray-500 hover:text-gray-300'"
-                class="px-2.5 py-1 rounded-md text-[10px] font-medium transition-all whitespace-nowrap"
-                :title="m.description"
-              >
-                {{ m.label }}
-              </button>
-            </div>
+            <select
+              v-model="selectedModel"
+              class="bg-[#111119] border border-white/8 rounded-lg px-2.5 py-1.5 text-[11px] text-gray-300
+                     focus:outline-none focus:border-violet-500/50 cursor-pointer appearance-none pr-7
+                     bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTEgMUw2IDYgMTEgMSIgc3Ryb2tlPSIjNjA2MDc0IiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+')] bg-no-repeat bg-position-[right_0.5rem_center]"
+            >
+              <option value="auto">Auto (smart selection)</option>
+              <optgroup label="── Anthropic">
+                <option value="haiku"  :disabled="!providers.anthropic">Claude Haiku 4.5{{ !providers.anthropic ? ' (not configured)' : '' }}</option>
+                <option value="sonnet" :disabled="!providers.anthropic">Claude Sonnet 4.6{{ !providers.anthropic ? ' (not configured)' : '' }}</option>
+                <option value="opus"   :disabled="!providers.anthropic">Claude Opus 4.6{{ !providers.anthropic ? ' (not configured)' : '' }}</option>
+              </optgroup>
+              <optgroup label="── OpenAI">
+                <option value="gpt-4o-mini" :disabled="!providers.openai">GPT-4o mini{{ !providers.openai ? ' (not configured)' : '' }}</option>
+                <option value="gpt-4o"      :disabled="!providers.openai">GPT-4o{{ !providers.openai ? ' (not configured)' : '' }}</option>
+              </optgroup>
+              <optgroup label="── Google">
+                <option value="gemini-flash" :disabled="!providers.gemini">Gemini 2.0 Flash{{ !providers.gemini ? ' (not configured)' : '' }}</option>
+                <option value="gemini-pro"   :disabled="!providers.gemini">Gemini 1.5 Pro{{ !providers.gemini ? ' (not configured)' : '' }}</option>
+              </optgroup>
+            </select>
 
             <!-- Analyse button -->
             <button
@@ -623,7 +631,7 @@
             fix suggestions, and prevention tips.
           </p>
           <p class="text-[11px] text-gray-700 mt-1">
-            Model: <span class="text-gray-500">{{ selectedModel === 'auto' ? 'auto-selected based on issue complexity' : selectedModelLabel }}</span>
+            Model: <span class="text-gray-500">{{ selectedModel === 'auto' ? 'auto-selected based on issue complexity' : selectedModel }}</span>
           </p>
         </div>
       </div>
@@ -646,7 +654,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 
@@ -659,16 +667,8 @@ const aiLoading            = ref(false)
 const aiError              = ref(null)
 
 // ── AI model selection ────────────────────────────────────────────────────────
-const MODEL_OPTIONS = [
-  { value: 'auto',   label: 'Auto',   description: 'Automatically pick the best model based on issue complexity' },
-  { value: 'haiku',  label: 'Haiku',  description: 'Claude Haiku 4.5 — fast, great for simple/high-frequency errors' },
-  { value: 'sonnet', label: 'Sonnet', description: 'Claude Sonnet 4.6 — balanced accuracy and speed (recommended)' },
-  { value: 'opus',   label: 'Opus',   description: 'Claude Opus 4.6 — most capable, best for deep/complex issues' },
-]
-const selectedModel      = ref('auto')
-const selectedModelLabel = computed(() =>
-  MODEL_OPTIONS.find(m => m.value === selectedModel.value)?.description ?? ''
-)
+const selectedModel = ref('auto')
+const providers     = ref({ anthropic: false, openai: false, gemini: false })
 
 const modelBadgeColor = (model) => {
   if (!model) return 'text-gray-500'
@@ -676,6 +676,8 @@ const modelBadgeColor = (model) => {
   if (m.includes('haiku'))  return 'text-sky-400'
   if (m.includes('sonnet')) return 'text-violet-400'
   if (m.includes('opus'))   return 'text-amber-400'
+  if (m.includes('gpt'))    return 'text-emerald-400'
+  if (m.includes('gemini')) return 'text-blue-400'
   return 'text-gray-400'
 }
 const showAssignee         = ref(false)
@@ -811,6 +813,9 @@ onMounted(async () => {
       axios.get(`/api/issues/${route.params.id}/analyze`)
         .then(r => { ai.value = r.data })
         .catch(() => {}),
+      axios.get('/api/ai/providers')
+        .then(r => { providers.value = r.data })
+        .catch(() => {}),
     ])
     issue.value = issueRes.data
   } finally {
@@ -831,7 +836,7 @@ async function runAnalysis() {
     if (err.response?.status === 429) {
       aiError.value = 'Analysis was run recently. Please wait a moment before re-analysing.'
     } else {
-      aiError.value = err.response?.data?.error ?? 'Analysis failed. Check that ANTHROPIC_API_KEY is configured.'
+      aiError.value = err.response?.data?.error ?? 'Analysis failed. Check that an AI provider key is configured.'
     }
   } finally {
     aiLoading.value = false
