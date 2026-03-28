@@ -179,6 +179,7 @@ async fn main() {
         .route("/api/issues/{id}/analyze",         post(routes::analysis::analyze_issue))
         // Stats
         .route("/api/stats",                       get(routes::stats::get_stats))
+        .route("/api/stats/chart",                 get(routes::chart::get_chart_stats))
         .layer(middleware::from_fn(auth::require_admin_token));
 
     let cors = {

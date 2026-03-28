@@ -6,12 +6,26 @@
       <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
 
         <!-- Logo -->
-        <router-link to="/" class="flex items-center gap-2.5">
-          <div class="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center text-sm font-bold shadow-lg shadow-violet-900/40">
-            ⚡
-          </div>
-          <span class="font-semibold text-[15px] text-white tracking-tight">DevPulse</span>
-        </router-link>
+        <div class="flex items-center gap-5">
+          <router-link to="/" class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center text-sm font-bold shadow-lg shadow-violet-900/40">
+              ⚡
+            </div>
+            <span class="font-semibold text-[15px] text-white tracking-tight">DevPulse</span>
+          </router-link>
+
+          <!-- Nav links -->
+          <nav class="hidden sm:flex items-center gap-1">
+            <router-link to="/" class="text-xs px-2.5 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+              :class="{ 'text-white bg-white/8': $route.path === '/' }">
+              Projects
+            </router-link>
+            <router-link to="/dashboard" class="text-xs px-2.5 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+              :class="{ 'text-white bg-white/8': $route.path === '/dashboard' }">
+              Analytics
+            </router-link>
+          </nav>
+        </div>
 
         <div class="flex items-center gap-4">
           <!-- Live status -->
