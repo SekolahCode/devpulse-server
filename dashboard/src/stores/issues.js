@@ -1,27 +1,27 @@
 import axios from "axios";
 import { defineStore } from "pinia";
 
+const PER_PAGE = 25;
+
 export const useIssuesStore = defineStore("issues", {
   state: () => ({
-    issues:      [],
-    total:       0,
-    offset:      0,
-    hasMore:     false,
-    loading:     true,
-    loadingMore: false,
-    stats:       null,
-    live:        [],
+    issues:     [],
+    total:      0,
+    page:       1,
+    perPage:    PER_PAGE,
+    loading:    true,
+    stats:      null,
+    live:       [],
   }),
 
+  getters: {
+    totalPages: (state) => Math.max(1, Math.ceil(state.total / state.perPage)),
+  },
+
   actions: {
-    async fetch(projectId, status = "unresolved", { search = "", environment = "", release = "", reset = true } = {}) {
-      if (reset) {
-        this.loading = true;
-        this.offset  = 0;
-        this.issues  = [];
-      } else {
-        this.loadingMore = true;
-      }
+    async fetch(projectId, status = "unresolved", { search = "", environment = "", release = "", page = 1 } = {}) {
+      this.loading = true;
+      this.page    = page;
 
       try {
         const { data } = await axios.get("/api/issues", {
@@ -31,29 +31,16 @@ export const useIssuesStore = defineStore("issues", {
             search:      search       || undefined,
             environment: environment  || undefined,
             release:     release      || undefined,
-            limit:       50,
-            offset:      reset ? 0 : this.offset,
+            limit:       this.perPage,
+            offset:      (page - 1) * this.perPage,
           },
         });
 
-        if (reset) {
-          this.issues = data.data;
-        } else {
-          this.issues.push(...data.data);
-        }
-
-        this.total   = data.total ?? data.data.length;
-        this.offset  = (reset ? 0 : this.offset) + data.data.length;
-        this.hasMore = this.issues.length < this.total;
+        this.issues = data.data;
+        this.total  = data.total ?? data.data.length;
       } finally {
-        this.loading     = false;
-        this.loadingMore = false;
+        this.loading = false;
       }
-    },
-
-    async fetchMore(projectId, status, search, environment, release = "") {
-      if (!this.hasMore || this.loadingMore) return;
-      await this.fetch(projectId, status, { search, environment, release, reset: false });
     },
 
     async fetchStats() {
@@ -93,7 +80,7 @@ export const useIssuesStore = defineStore("issues", {
       this.live.unshift(event);
       if (this.live.length > 20) this.live.pop();
 
-      if (event.is_new && !this.issues.some((i) => i.id === event.issue_id)) {
+      if (event.is_new && this.page === 1 && !this.issues.some((i) => i.id === event.issue_id)) {
         this.issues.unshift({
           id:          event.issue_id,
           title:       event.title,
@@ -102,6 +89,8 @@ export const useIssuesStore = defineStore("issues", {
           event_count: 1,
           last_seen:   new Date().toISOString(),
         });
+        // Trim to page size so the row count stays consistent
+        if (this.issues.length > this.perPage) this.issues.pop();
         this.total += 1;
       }
     },

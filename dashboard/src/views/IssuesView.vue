@@ -286,19 +286,68 @@
         </div>
       </div>
 
-      <!-- Footer -->
-      <div class="px-4 py-3 bg-[#0d0d16] border-t border-white/5 flex items-center justify-between">
-        <span class="text-xs text-gray-600">
-          Showing <span class="text-gray-400">{{ store.issues.length }}</span> of <span class="text-gray-400">{{ store.total }}</span>
+      <!-- Pagination footer -->
+      <div class="px-4 py-3 bg-[#0d0d16] border-t border-white/5 flex items-center justify-between gap-4">
+
+        <!-- Row count -->
+        <span class="text-xs text-gray-600 shrink-0">
+          <span class="text-gray-400">{{ pageStart }}–{{ pageEnd }}</span>
+          of
+          <span class="text-gray-400">{{ store.total }}</span>
         </span>
-        <button
-          v-if="store.hasMore"
-          @click="loadMore"
-          :disabled="store.loadingMore"
-          class="text-xs text-violet-400 hover:text-violet-300 disabled:opacity-50 transition-colors font-medium"
-        >
-          {{ store.loadingMore ? 'Loading…' : 'Load more' }}
-        </button>
+
+        <!-- Page buttons -->
+        <div class="flex items-center gap-1">
+          <!-- Prev -->
+          <button
+            @click="goToPage(store.page - 1)"
+            :disabled="store.page <= 1"
+            class="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-white hover:bg-white/8
+                   disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            aria-label="Previous page"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="10 4 6 8 10 12"/>
+            </svg>
+          </button>
+
+          <!-- Page numbers -->
+          <span
+            v-for="(p, i) in pageButtons"
+            :key="i"
+          >
+            <span v-if="p === '...'" class="w-7 h-7 flex items-center justify-center text-xs text-gray-600">…</span>
+            <button
+              v-else
+              @click="goToPage(p)"
+              :class="p === store.page
+                ? 'bg-violet-600 text-white shadow'
+                : 'text-gray-400 hover:text-white hover:bg-white/8'"
+              class="w-7 h-7 flex items-center justify-center rounded-md text-xs font-medium transition-colors tabular-nums"
+            >
+              {{ p }}
+            </button>
+          </span>
+
+          <!-- Next -->
+          <button
+            @click="goToPage(store.page + 1)"
+            :disabled="store.page >= store.totalPages"
+            class="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-white hover:bg-white/8
+                   disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            aria-label="Next page"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 4 10 8 6 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Per-page label -->
+        <span class="text-xs text-gray-600 shrink-0 hidden sm:block">
+          {{ store.perPage }} / page
+        </span>
+
       </div>
     </div>
 
@@ -330,6 +379,7 @@ const tab         = ref(route.query.tab         ?? 'unresolved')
 const search      = ref(route.query.search      ?? '')
 const environment = ref(route.query.env         ?? '')
 const release     = ref(route.query.release     ?? '')
+const page        = ref(Number(route.query.page ?? 1))
 const releases    = ref([])
 const openMenu    = ref(null)
 const menuConfirm = ref(null) // { id, type } — pending confirmation for ellipsis action
@@ -343,10 +393,11 @@ function activeSearch()  { return tab.value === 'vitals' ? 'Performance vitals' 
 
 function syncQuery() {
   router.replace({ query: {
-    ...(tab.value !== 'unresolved' ? { tab: tab.value }       : {}),
-    ...(search.value               ? { search: search.value } : {}),
+    ...(tab.value !== 'unresolved' ? { tab: tab.value }         : {}),
+    ...(search.value               ? { search: search.value }   : {}),
     ...(environment.value          ? { env: environment.value } : {}),
     ...(release.value              ? { release: release.value } : {}),
+    ...(page.value > 1             ? { page: page.value }       : {}),
   }})
 }
 
@@ -355,6 +406,7 @@ function fetchIssues() {
     search:      activeSearch(),
     environment: environment.value,
     release:     release.value,
+    page:        page.value,
   })
 }
 
@@ -407,12 +459,14 @@ async function action(type, id) {
 // ── Tab / filter changes ──────────────────────────────────────────────────────
 function setTab(t) {
   tab.value = t
+  page.value = 1
   selected.value = new Set()
   syncQuery()
   fetchIssues()
 }
 
 function refetch() {
+  page.value = 1
   selected.value = new Set()
   syncQuery()
   fetchIssues()
@@ -423,9 +477,36 @@ function onSearch() {
   searchTimer = setTimeout(refetch, 300)
 }
 
-function loadMore() {
-  store.fetchMore(route.params.id, activeStatus(), activeSearch(), environment.value, release.value)
+function goToPage(p) {
+  if (p < 1 || p > store.totalPages || p === store.page) return
+  page.value = p
+  selected.value = new Set()
+  syncQuery()
+  fetchIssues()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
+
+// ── Pagination helpers ────────────────────────────────────────────────────────
+const pageStart = computed(() => store.total === 0 ? 0 : (store.page - 1) * store.perPage + 1)
+const pageEnd   = computed(() => Math.min(store.page * store.perPage, store.total))
+
+// Builds the page button list with ellipsis, e.g. [1, '...', 4, 5, 6, '...', 12]
+const pageButtons = computed(() => {
+  const total = store.totalPages
+  const cur   = store.page
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+
+  const pages = new Set([1, total, cur - 1, cur, cur + 1].filter(p => p >= 1 && p <= total))
+  const sorted = [...pages].sort((a, b) => a - b)
+  const result = []
+  let prev = 0
+  for (const p of sorted) {
+    if (p - prev > 1) result.push('...')
+    result.push(p)
+    prev = p
+  }
+  return result
+})
 
 // ── Bulk selection ────────────────────────────────────────────────────────────
 const allSelected  = computed(() => store.issues.length > 0 && store.issues.every(i => selected.value.has(i.id)))
