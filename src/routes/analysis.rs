@@ -1,10 +1,9 @@
 use axum::{extract::{Path, State}, Json};
 use serde_json::{json, Value};
 use uuid::Uuid;
-use crate::{errors::AppError, AppState};
+use crate::{ai::{select_model, AnalysisContext, Model}, errors::AppError, AppState};
 
 /// GET /api/issues/:id/analyze — return cached analysis without calling Claude.
-/// Returns 404 if no analysis has been run yet.
 pub async fn get_analysis(
     Path(id):     Path<Uuid>,
     State(state): State<AppState>,
@@ -12,7 +11,7 @@ pub async fn get_analysis(
     let cached = sqlx::query!(
         r#"
         SELECT root_cause, explanation, fix_suggestion, code_example,
-               severity, prevention, model, analyzed_at
+               severity, prevention, model, model_auto, model_reason, analyzed_at
         FROM ai_analyses
         WHERE issue_id = $1
         "#,
@@ -31,19 +30,34 @@ pub async fn get_analysis(
         "severity":       cached.severity,
         "prevention":     cached.prevention,
         "model":          cached.model,
+        "model_auto":     cached.model_auto,
+        "model_reason":   cached.model_reason,
         "analyzed_at":    cached.analyzed_at,
     })))
 }
 
 /// POST /api/issues/:id/analyze — run (or re-run) AI analysis, cache result.
-/// Rate-limited: returns 429 if called within 60 seconds of last analysis.
+///
+/// Optional JSON body:
+/// ```json
+/// { "model": "auto" | "haiku" | "sonnet" | "opus" }
+/// ```
+/// When omitted or `"auto"`, the model is selected automatically based on
+/// issue complexity signals (stack depth, level, event count, exception chains).
 pub async fn analyze_issue(
     Path(id):     Path<Uuid>,
     State(state): State<AppState>,
+    body:         Option<Json<Value>>,
 ) -> Result<Json<Value>, AppError> {
     let api_key = state.anthropic_key.clone().ok_or_else(|| {
         AppError::BadRequest("ANTHROPIC_API_KEY is not configured on this server".into())
     })?;
+
+    let model_request = body.as_ref()
+        .and_then(|b| b.get("model"))
+        .and_then(|m| m.as_str())
+        .unwrap_or("auto")
+        .to_string();
 
     // Rate limit: prevent re-analysis within 60 seconds
     let too_recent = sqlx::query_scalar!(
@@ -61,7 +75,7 @@ pub async fn analyze_issue(
     // Fetch the issue
     let issue = sqlx::query!(
         r#"
-        SELECT i.id, i.title, i.level, p.platform
+        SELECT i.id, i.title, i.level, i.event_count, p.platform
         FROM issues i
         JOIN projects p ON p.id = i.project_id
         WHERE i.id = $1
@@ -86,30 +100,67 @@ pub async fn analyze_issue(
     .fetch_optional(&state.pg_pool)
     .await?;
 
-    // Build stack trace string from payload
-    let stacktrace = event.as_ref().and_then(|e| {
-        let payload: &serde_json::Value = &e.payload;
-        let frames = payload
+    // ── Build stack trace from payload ────────────────────────────────────────
+    let (stacktrace, frame_count, has_exception_chain) = if let Some(ref e) = event {
+        let payload: &Value = &e.payload;
+
+        let primary_frames = payload
             .get("exception")
             .and_then(|ex| ex.get("stacktrace"))
-            .and_then(|st| st.as_array())?;
+            .and_then(|st| st.as_array());
 
-        let lines: Vec<String> = frames.iter().map(|f| {
-            let func = f["function"].as_str().unwrap_or("?");
-            let file = f["file"].as_str().unwrap_or("");
-            let line = f["line"].as_i64().map(|l| format!(":{l}")).unwrap_or_default();
-            format!("  at {func} ({file}{line})")
-        }).collect();
-        Some(lines.join("\n"))
-    }).unwrap_or_else(|| issue.title.clone());
+        let has_chain = payload
+            .get("exception_chain")
+            .and_then(|c| c.as_array())
+            .map(|a| !a.is_empty())
+            .unwrap_or(false);
+
+        if let Some(frames) = primary_frames {
+            let lines: Vec<String> = frames.iter().map(|f| {
+                let func = f["function"].as_str().unwrap_or("?");
+                let file = f["file"].as_str().unwrap_or("");
+                let line = f["line"].as_i64().map(|l| format!(":{l}")).unwrap_or_default();
+                format!("  at {func} ({file}{line})")
+            }).collect();
+            let count = lines.len();
+            (lines.join("\n"), count, has_chain)
+        } else {
+            (issue.title.clone(), 0, has_chain)
+        }
+    } else {
+        (issue.title.clone(), 0, false)
+    };
 
     let context_str = event.as_ref().and_then(|e| {
         e.context.as_ref().map(|c| serde_json::to_string_pretty(c).unwrap_or_default())
     });
 
-    let platform = issue.platform.as_deref().unwrap_or("unknown");
+    let is_vitals = issue.title == "Performance vitals";
+    let platform  = issue.platform.as_deref().unwrap_or("unknown");
 
-    // Call Claude
+    // ── Model selection ───────────────────────────────────────────────────────
+    let (model, model_auto, model_reason_str): (Model, bool, Option<String>) =
+        if model_request == "auto" || model_request.is_empty() {
+            let ctx = AnalysisContext {
+                stacktrace_frames:   frame_count,
+                level:               issue.level.clone().unwrap_or_default(),
+                event_count:         issue.event_count.unwrap_or(0),
+                has_exception_chain,
+                is_vitals,
+            };
+            let (m, reason) = select_model(&ctx);
+            (m, true, Some(reason.to_string()))
+        } else {
+            let m = Model::from_str(&model_request).unwrap_or(Model::Sonnet);
+            (m, false, None)
+        };
+
+    tracing::info!(
+        "🤖 Analysing issue {id} with {} (auto={model_auto})",
+        model.display_name()
+    );
+
+    // ── Call Claude ───────────────────────────────────────────────────────────
     let analysis = crate::ai::analyse_issue(
         &state.http_client,
         &api_key,
@@ -117,6 +168,9 @@ pub async fn analyze_issue(
         &stacktrace,
         platform,
         context_str.as_deref(),
+        &model,
+        model_auto,
+        model_reason_str.as_deref(),
     )
     .await
     .map_err(|e| {
@@ -124,12 +178,13 @@ pub async fn analyze_issue(
         AppError::InternalError(format!("AI analysis failed: {e}"))
     })?;
 
-    // Upsert into cache
+    // ── Upsert into cache ─────────────────────────────────────────────────────
     sqlx::query!(
         r#"
         INSERT INTO ai_analyses
-            (issue_id, root_cause, explanation, fix_suggestion, code_example, severity, prevention, model)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            (issue_id, root_cause, explanation, fix_suggestion, code_example,
+             severity, prevention, model, model_auto, model_reason)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ON CONFLICT (issue_id) DO UPDATE SET
             root_cause     = EXCLUDED.root_cause,
             explanation    = EXCLUDED.explanation,
@@ -138,6 +193,8 @@ pub async fn analyze_issue(
             severity       = EXCLUDED.severity,
             prevention     = EXCLUDED.prevention,
             model          = EXCLUDED.model,
+            model_auto     = EXCLUDED.model_auto,
+            model_reason   = EXCLUDED.model_reason,
             analyzed_at    = NOW()
         "#,
         id,
@@ -148,11 +205,13 @@ pub async fn analyze_issue(
         analysis.severity,
         analysis.prevention,
         analysis.model,
+        analysis.model_auto,
+        analysis.model_reason,
     )
     .execute(&state.pg_pool)
     .await?;
 
-    tracing::info!("✅ AI analysis cached for issue {id}");
+    tracing::info!("✅ AI analysis cached for issue {id} ({})", analysis.model);
 
     Ok(Json(json!({
         "cached":         false,
@@ -163,6 +222,8 @@ pub async fn analyze_issue(
         "severity":       analysis.severity,
         "prevention":     analysis.prevention,
         "model":          analysis.model,
+        "model_auto":     analysis.model_auto,
+        "model_reason":   analysis.model_reason,
         "analyzed_at":    chrono::Utc::now(),
     })))
 }

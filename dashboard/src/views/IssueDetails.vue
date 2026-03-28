@@ -528,26 +528,45 @@
 
       <!-- ── AI Analysis panel ──────────────────────────────────────────── -->
       <div class="mb-6">
-        <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
           <h2 class="text-[11px] text-gray-500 uppercase tracking-wide font-medium flex items-center gap-1.5">
             <span>AI Analysis</span>
             <span v-if="ai?.cached" class="text-[9px] px-1.5 py-0.5 rounded bg-gray-700/60 text-gray-500 font-bold tracking-wider">cached</span>
           </h2>
-          <button
-            @click="runAnalysis"
-            :disabled="aiLoading"
-            class="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg font-medium transition-all
-                   bg-violet-600/20 text-violet-400 hover:bg-violet-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <svg v-if="aiLoading" class="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-            </svg>
-            <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
-            {{ aiLoading ? 'Analysing…' : ai ? 'Re-analyse' : 'Analyse with AI' }}
-          </button>
+
+          <div class="flex items-center gap-2 ml-auto">
+            <!-- Model picker -->
+            <div class="flex items-center bg-[#111119] border border-white/6 rounded-lg p-0.5 gap-0.5">
+              <button
+                v-for="m in MODEL_OPTIONS" :key="m.value"
+                @click="selectedModel = m.value"
+                :class="selectedModel === m.value
+                  ? 'bg-[#1e1e30] text-white'
+                  : 'text-gray-500 hover:text-gray-300'"
+                class="px-2.5 py-1 rounded-md text-[10px] font-medium transition-all whitespace-nowrap"
+                :title="m.description"
+              >
+                {{ m.label }}
+              </button>
+            </div>
+
+            <!-- Analyse button -->
+            <button
+              @click="runAnalysis"
+              :disabled="aiLoading"
+              class="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg font-medium transition-all
+                     bg-violet-600/20 text-violet-400 hover:bg-violet-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg v-if="aiLoading" class="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
+              {{ aiLoading ? 'Analysing…' : ai ? 'Re-analyse' : 'Analyse with AI' }}
+            </button>
+          </div>
         </div>
 
         <div v-if="aiError" class="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">
@@ -580,13 +599,32 @@
             <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-1.5">Prevention</p>
             <p class="text-[13px] text-gray-400 leading-relaxed">{{ ai.prevention }}</p>
           </div>
-          <p class="text-[10px] text-gray-700 text-right">
-            Powered by {{ ai.model }} · {{ ai.cached ? 'cached result' : 'fresh analysis' }}
-          </p>
+
+          <!-- Model footer -->
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div v-if="ai.model_auto && ai.model_reason"
+              class="flex items-center gap-1.5 text-[10px] text-gray-600">
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="8" cy="8" r="6"/><line x1="8" y1="5" x2="8" y2="8"/><circle cx="8" cy="11" r="0.5" fill="currentColor"/>
+              </svg>
+              <span class="italic">{{ ai.model_reason }}</span>
+            </div>
+            <p class="text-[10px] text-gray-700 ml-auto">
+              <span :class="modelBadgeColor(ai.model)" class="font-semibold">{{ ai.model }}</span>
+              · {{ ai.model_auto ? 'auto-selected' : 'manual' }}
+              · {{ ai.cached ? 'cached' : 'fresh' }}
+            </p>
+          </div>
         </div>
 
         <div v-else class="bg-[#111119] border border-white/6 rounded-xl px-4 py-6 text-center">
-          <p class="text-[13px] text-gray-500">Click <span class="text-violet-400 font-medium">Analyse with AI</span> to get root cause, fix suggestions, and prevention tips powered by Claude.</p>
+          <p class="text-[13px] text-gray-500">
+            Click <span class="text-violet-400 font-medium">Analyse with AI</span> to get root cause,
+            fix suggestions, and prevention tips.
+          </p>
+          <p class="text-[11px] text-gray-700 mt-1">
+            Model: <span class="text-gray-500">{{ selectedModel === 'auto' ? 'auto-selected based on issue complexity' : selectedModelLabel }}</span>
+          </p>
         </div>
       </div>
 
@@ -608,7 +646,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 
@@ -619,6 +657,27 @@ const loading              = ref(true)
 const ai                   = ref(null)
 const aiLoading            = ref(false)
 const aiError              = ref(null)
+
+// ── AI model selection ────────────────────────────────────────────────────────
+const MODEL_OPTIONS = [
+  { value: 'auto',   label: 'Auto',   description: 'Automatically pick the best model based on issue complexity' },
+  { value: 'haiku',  label: 'Haiku',  description: 'Claude Haiku 4.5 — fast, great for simple/high-frequency errors' },
+  { value: 'sonnet', label: 'Sonnet', description: 'Claude Sonnet 4.6 — balanced accuracy and speed (recommended)' },
+  { value: 'opus',   label: 'Opus',   description: 'Claude Opus 4.6 — most capable, best for deep/complex issues' },
+]
+const selectedModel      = ref('auto')
+const selectedModelLabel = computed(() =>
+  MODEL_OPTIONS.find(m => m.value === selectedModel.value)?.description ?? ''
+)
+
+const modelBadgeColor = (model) => {
+  if (!model) return 'text-gray-500'
+  const m = model.toLowerCase()
+  if (m.includes('haiku'))  return 'text-sky-400'
+  if (m.includes('sonnet')) return 'text-violet-400'
+  if (m.includes('opus'))   return 'text-amber-400'
+  return 'text-gray-400'
+}
 const showAssignee         = ref(false)
 const assigneeInput        = ref('')
 const expandedPlugins      = ref(new Set())
@@ -763,7 +822,10 @@ async function runAnalysis() {
   aiLoading.value = true
   aiError.value   = null
   try {
-    const { data } = await axios.post(`/api/issues/${route.params.id}/analyze`)
+    const { data } = await axios.post(
+      `/api/issues/${route.params.id}/analyze`,
+      { model: selectedModel.value },
+    )
     ai.value = data
   } catch (err) {
     if (err.response?.status === 429) {
