@@ -132,21 +132,48 @@
             <!-- Stack trace -->
             <div v-if="event.payload?.exception?.stacktrace?.length" class="px-4 py-3">
               <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-2">Stack trace</p>
-              <div class="font-mono text-[12px] leading-5 overflow-x-auto">
+              <div class="font-mono text-[12px] leading-5">
                 <div v-for="(frame, fi) in event.payload.exception.stacktrace"
                      :key="fi"
-                     class="flex items-start gap-3 px-2 py-0.5 rounded hover:bg-white/3 transition-colors"
-                     :class="fi === 0 ? 'text-gray-200' : 'text-gray-500'">
-                  <span class="shrink-0 text-gray-700 w-5 text-right select-none tabular-nums text-[11px] pt-px">
-                    {{ fi + 1 }}
-                  </span>
-                  <span>
-                    <span v-if="frame.function" class="text-violet-400">{{ frame.function }}</span>
-                    <span v-if="frame.function && frame.file" class="text-gray-600"> @ </span>
-                    <span v-if="frame.file" class="text-cyan-500/80">{{ frame.file }}</span>
-                    <span v-if="frame.line" class="text-gray-600">:{{ frame.line }}</span>
-                    <span v-if="!frame.function && !frame.file" class="text-gray-700 italic">unknown frame</span>
-                  </span>
+                     class="rounded mb-0.5 overflow-hidden">
+                  <!-- Frame header -->
+                  <div class="flex items-start gap-3 px-2 py-0.5 rounded transition-colors"
+                       :class="[
+                         fi === 0 ? 'text-gray-200' : 'text-gray-500',
+                         frame.context ? 'cursor-pointer hover:bg-white/5' : 'hover:bg-white/3'
+                       ]"
+                       @click="frame.context && toggleFrame(idx, fi)">
+                    <span class="shrink-0 text-gray-700 w-5 text-right select-none tabular-nums text-[11px] pt-px">
+                      {{ fi + 1 }}
+                    </span>
+                    <span class="flex-1 min-w-0">
+                      <span v-if="frame.function" class="text-violet-400">{{ frame.function }}</span>
+                      <span v-if="frame.function && frame.file" class="text-gray-600"> @ </span>
+                      <span v-if="frame.file" class="text-cyan-500/80">{{ frame.file }}</span>
+                      <span v-if="frame.line" class="text-gray-600">:{{ frame.line }}</span>
+                      <span v-if="!frame.function && !frame.file" class="text-gray-700 italic">unknown frame</span>
+                    </span>
+                    <span v-if="frame.context" class="shrink-0 text-gray-700 text-[10px] pt-px select-none">
+                      {{ expandedFrames.has(`${idx}-${fi}`) ? '▲' : '▼' }}
+                    </span>
+                  </div>
+                  <!-- Code snippet -->
+                  <div v-if="frame.context && expandedFrames.has(`${idx}-${fi}`)"
+                       class="mt-0.5 rounded overflow-hidden bg-[#0a0a10] border border-white/5">
+                    <div v-for="(codeLine, lineNum) in frame.context.lines"
+                         :key="lineNum"
+                         class="flex items-stretch text-[11px] leading-5"
+                         :class="Number(lineNum) === frame.line ? 'bg-amber-500/10' : ''">
+                      <span class="shrink-0 w-10 text-right pr-3 select-none tabular-nums py-px"
+                            :class="Number(lineNum) === frame.line ? 'text-amber-400 font-bold' : 'text-gray-700'">
+                        {{ lineNum }}
+                      </span>
+                      <span class="w-px shrink-0"
+                            :class="Number(lineNum) === frame.line ? 'bg-amber-500/60' : 'bg-white/5'"></span>
+                      <span class="pl-3 py-px whitespace-pre overflow-x-auto flex-1"
+                            :class="Number(lineNum) === frame.line ? 'text-amber-200' : 'text-gray-500'">{{ codeLine }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -411,12 +438,21 @@ const aiError         = ref(null)
 const showAssignee    = ref(false)
 const assigneeInput   = ref('')
 const expandedPlugins = ref(new Set())
+const expandedFrames  = ref(new Set())
 
 function togglePlugins(eventId) {
   const s = new Set(expandedPlugins.value)
   if (s.has(eventId)) s.delete(eventId)
   else s.add(eventId)
   expandedPlugins.value = s
+}
+
+function toggleFrame(eventIdx, frameIdx) {
+  const key = `${eventIdx}-${frameIdx}`
+  const s = new Set(expandedFrames.value)
+  if (s.has(key)) s.delete(key)
+  else s.add(key)
+  expandedFrames.value = s
 }
 
 onMounted(async () => {
