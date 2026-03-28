@@ -56,16 +56,13 @@
 
       <!-- Metadata row: assignee, priority, release -->
       <div class="flex flex-wrap items-center gap-3 mb-5">
-        <!-- Priority badge -->
         <span :class="priorityBadge(issue.priority)"
               class="text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide">
           {{ issue.priority ?? 'medium' }} priority
         </span>
-        <!-- Release -->
         <span v-if="issue.last_release" class="text-[11px] text-gray-400 bg-white/5 px-2 py-0.5 rounded font-mono">
           v{{ issue.last_release }}
         </span>
-        <!-- Assignee badge / set assignee -->
         <div class="flex items-center gap-1.5">
           <span v-if="issue.assignee" class="text-[11px] text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded">
             👤 {{ issue.assignee }}
@@ -97,17 +94,60 @@
         </button>
       </div>
 
-      <!-- Recent occurrences -->
+      <!-- ── Recent occurrences ─────────────────────────────────────────── -->
       <div v-if="issue.events?.length" class="mb-6">
         <h2 class="text-[11px] text-gray-500 uppercase tracking-wide font-medium mb-3">
           Recent occurrences
         </h2>
-        <div class="space-y-3">
+        <div class="space-y-6">
           <div v-for="(event, idx) in issue.events" :key="event.id"
-               class="bg-[#111119] border border-white/6 rounded-xl overflow-hidden">
+               class="bg-[#0e0e18] border border-white/8 rounded-xl overflow-hidden">
 
-            <!-- Event header -->
-            <div class="flex items-center justify-between px-4 py-2.5 border-b border-white/5 bg-[#0d0d16]">
+            <!-- ── Exception header ──────────────────────────────────────── -->
+            <div v-if="event.payload?.exception" class="px-6 pt-6 pb-5 border-b border-white/6">
+              <!-- Short type -->
+              <h3 class="text-2xl font-bold text-white mb-1 font-mono">
+                {{ event.payload.exception.type?.split('\\').pop() ?? 'Error' }}
+              </h3>
+              <!-- Throw-site file:line -->
+              <p v-if="event.payload.exception.stacktrace?.[0]?.file"
+                 class="text-[12px] text-gray-500 font-mono mb-3">
+                {{ event.payload.exception.stacktrace[0].file }}:{{ event.payload.exception.stacktrace[0].line }}
+              </p>
+              <!-- Full message -->
+              <p class="text-[14px] text-gray-300 leading-relaxed mb-4">
+                {{ event.payload.exception.message }}
+              </p>
+              <!-- Badges -->
+              <div class="flex flex-wrap items-center gap-2">
+                <span v-if="event.context?.laravel"
+                      class="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-600/20 text-purple-300 font-mono tracking-wide">
+                  LARAVEL {{ event.context.laravel }}
+                </span>
+                <span v-if="event.context?.php"
+                      class="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono tracking-wide">
+                  PHP {{ event.context.php }}
+                </span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 tracking-wide">
+                  ⚠ UNHANDLED
+                </span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 text-gray-500 tracking-wide">
+                  CODE {{ event.payload.exception.code ?? 0 }}
+                </span>
+                <span v-if="event.payload?.request?.method"
+                      :class="methodColor(event.payload.request.method)"
+                      class="text-[10px] font-bold px-2 py-0.5 rounded font-mono tracking-wide">
+                  {{ event.payload.request.method }}
+                </span>
+                <span v-if="event.payload?.request?.url"
+                      class="text-[11px] text-gray-500 font-mono truncate max-w-xs">
+                  {{ event.payload.request.url }}
+                </span>
+              </div>
+            </div>
+
+            <!-- ── Non-exception event header ────────────────────────────── -->
+            <div v-else class="flex items-center justify-between px-4 py-2.5 bg-[#0d0d16] border-b border-white/5">
               <div class="flex items-center gap-2">
                 <span class="text-[11px] text-gray-500 font-medium">
                   {{ idx === 0 ? 'Latest' : `Occurrence #${idx + 1}` }}
@@ -123,66 +163,134 @@
                       class="text-[10px] font-mono text-gray-500 bg-white/5 px-1.5 py-0.5 rounded">
                   v{{ event.release }}
                 </span>
-                <span class="text-[11px] text-gray-600 tabular-nums">
-                  {{ formatDate(event.created_at) }}
-                </span>
+                <span class="text-[11px] text-gray-600 tabular-nums">{{ formatDate(event.created_at) }}</span>
               </div>
             </div>
 
-            <!-- Stack trace -->
-            <div v-if="event.payload?.exception?.stacktrace?.length" class="px-4 py-3">
-              <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-2">Stack trace</p>
-              <div class="font-mono text-[12px] leading-5">
-                <div v-for="(frame, fi) in event.payload.exception.stacktrace"
-                     :key="fi"
-                     class="rounded mb-0.5 overflow-hidden">
-                  <!-- Frame header -->
-                  <div class="flex items-start gap-3 px-2 py-0.5 rounded transition-colors"
-                       :class="[
-                         fi === 0 ? 'text-gray-200' : 'text-gray-500',
-                         frame.context ? 'cursor-pointer hover:bg-white/5' : 'hover:bg-white/3'
-                       ]"
-                       @click="frame.context && toggleFrame(idx, fi)">
-                    <span class="shrink-0 text-gray-700 w-5 text-right select-none tabular-nums text-[11px] pt-px">
-                      {{ fi + 1 }}
-                    </span>
-                    <span class="flex-1 min-w-0">
-                      <span v-if="frame.function" class="text-violet-400">{{ frame.function }}</span>
-                      <span v-if="frame.function && frame.file" class="text-gray-600"> @ </span>
-                      <span v-if="frame.file" class="text-cyan-500/80">{{ frame.file }}</span>
-                      <span v-if="frame.line" class="text-gray-600">:{{ frame.line }}</span>
-                      <span v-if="!frame.function && !frame.file" class="text-gray-700 italic">unknown frame</span>
-                    </span>
-                    <span v-if="frame.context" class="shrink-0 text-gray-700 text-[10px] pt-px select-none">
-                      {{ expandedFrames.has(`${idx}-${fi}`) ? '▲' : '▼' }}
-                    </span>
-                  </div>
-                  <!-- Code snippet -->
-                  <div v-if="frame.context && expandedFrames.has(`${idx}-${fi}`)"
-                       class="mt-0.5 rounded overflow-hidden bg-[#0a0a10] border border-white/5">
-                    <div v-for="(codeLine, lineNum) in frame.context.lines"
-                         :key="lineNum"
-                         class="flex items-stretch text-[11px] leading-5"
-                         :class="Number(lineNum) === frame.line ? 'bg-amber-500/10' : ''">
-                      <span class="shrink-0 w-10 text-right pr-3 select-none tabular-nums py-px"
-                            :class="Number(lineNum) === frame.line ? 'text-amber-400 font-bold' : 'text-gray-700'">
-                        {{ lineNum }}
-                      </span>
-                      <span class="w-px shrink-0"
-                            :class="Number(lineNum) === frame.line ? 'bg-amber-500/60' : 'bg-white/5'"></span>
-                      <span class="pl-3 py-px whitespace-pre overflow-x-auto flex-1"
-                            :class="Number(lineNum) === frame.line ? 'text-amber-200' : 'text-gray-500'">{{ codeLine }}</span>
+            <!-- ── Exception trace ────────────────────────────────────────── -->
+            <div v-if="event.payload?.exception?.stacktrace?.length" class="px-5 py-5">
+              <p class="text-[11px] font-semibold text-gray-400 mb-3 flex items-center gap-2">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-amber-500 shrink-0">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                Exception trace
+              </p>
+              <div class="space-y-1.5">
+                <template v-for="(group, gi) in groupFrames(event.payload.exception.stacktrace)">
+
+                  <!-- App frame card -->
+                  <div v-if="group.type === 'app'"
+                       :key="`app-${gi}`"
+                       class="border border-white/8 rounded-lg overflow-hidden">
+                    <!-- Frame header -->
+                    <div class="flex items-center justify-between gap-3 px-4 py-2.5 bg-[#0d0d16]">
+                      <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                        <span class="shrink-0 w-2 h-2 rounded-full"
+                              :class="gi === 0 ? 'bg-red-400' : 'bg-gray-600'"></span>
+                        <span class="text-[12px] font-mono truncate"
+                              :class="gi === 0 ? 'text-gray-200' : 'text-gray-400'">
+                          <span v-if="group.frame.function" class="text-violet-400">{{ group.frame.function }}</span>
+                          <span v-else-if="group.frame.file" class="text-gray-500">{{ group.frame.file.split('/').pop() }}</span>
+                          <span v-else class="text-gray-700 italic">unknown</span>
+                        </span>
+                      </div>
+                      <div class="flex items-center gap-2 shrink-0">
+                        <span class="text-[11px] text-gray-600 font-mono">
+                          {{ shortPath(group.frame.file) }}:{{ group.frame.line }}
+                        </span>
+                        <button v-if="group.frame.context"
+                                @click="toggleFrame(idx, gi)"
+                                class="w-5 h-5 flex items-center justify-center rounded border border-white/10
+                                       hover:border-white/25 text-gray-600 hover:text-gray-300 transition-colors text-[11px] shrink-0">
+                          {{ collapsedFrames.has(`${idx}-${gi}`) ? '+' : '×' }}
+                        </button>
+                      </div>
+                    </div>
+                    <!-- Code snippet — open by default, collapse with × -->
+                    <div v-if="group.frame.context && !collapsedFrames.has(`${idx}-${gi}`)">
+                      <div v-for="(codeLine, lineNum) in group.frame.context.lines"
+                           :key="lineNum"
+                           class="flex items-stretch font-mono text-[12px] leading-6"
+                           :class="Number(lineNum) === group.frame.line ? 'bg-red-500/10' : 'hover:bg-white/[0.015]'">
+                        <span class="shrink-0 w-12 text-right pr-3 select-none tabular-nums py-0.5 border-r"
+                              :class="Number(lineNum) === group.frame.line
+                                ? 'text-red-400 font-bold border-red-500/50 bg-red-500/15'
+                                : 'text-gray-700 border-white/5'">
+                          {{ lineNum }}
+                        </span>
+                        <span class="pl-4 py-0.5 whitespace-pre overflow-x-auto flex-1"
+                              :class="Number(lineNum) === group.frame.line ? 'text-red-100' : 'text-gray-400'">{{ codeLine }}</span>
+                      </div>
                     </div>
                   </div>
+
+                  <!-- Vendor frames group -->
+                  <div v-else :key="`vendor-${gi}`" class="border border-white/5 rounded-lg overflow-hidden">
+                    <button @click="toggleVendorGroup(idx, gi)"
+                            class="w-full flex items-center gap-2.5 px-4 py-2 text-[11px] text-gray-600
+                                   hover:text-gray-400 hover:bg-white/3 transition-colors">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0">
+                        <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+                      </svg>
+                      <span>{{ group.frames.length }} vendor frame{{ group.frames.length !== 1 ? 's' : '' }}</span>
+                      <span class="ml-auto transition-transform duration-150"
+                            :class="expandedVendorGroups.has(`${idx}-${gi}`) ? 'rotate-180' : ''">▾</span>
+                    </button>
+                    <div v-if="expandedVendorGroups.has(`${idx}-${gi}`)" class="border-t border-white/5">
+                      <div v-for="(vf, vfi) in group.frames" :key="vfi"
+                           class="flex items-start gap-3 px-4 py-1.5 border-b border-white/3 last:border-0 hover:bg-white/2">
+                        <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-gray-700 mt-1.5"></span>
+                        <span class="text-[11px] text-gray-600 font-mono flex-1 truncate">
+                          {{ vf.function ?? (vf.file?.split('/').pop() ?? 'unknown') }}
+                        </span>
+                        <span class="text-[10px] text-gray-700 font-mono shrink-0">
+                          {{ shortPath(vf.file) }}{{ vf.line ? `:${vf.line}` : '' }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                </template>
+              </div>
+            </div>
+
+            <!-- ── Queries (from DB breadcrumbs) ─────────────────────────── -->
+            <div v-if="dbCrumbs(event).length" class="px-5 py-4 border-t border-white/5">
+              <p class="text-[11px] font-semibold text-gray-400 mb-3 flex items-center justify-between">
+                <span class="flex items-center gap-2">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-emerald-500 shrink-0">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                  </svg>
+                  Queries
+                </span>
+                <span class="text-gray-700 font-normal text-[10px]">
+                  1–{{ dbCrumbs(event).length }} of {{ dbCrumbs(event).length }}
+                </span>
+              </p>
+              <div class="space-y-1">
+                <div v-for="(crumb, ci) in dbCrumbs(event)" :key="ci"
+                     class="flex items-center gap-3 font-mono text-[11px] px-3 py-2 rounded-lg bg-[#090912] border border-white/5">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-emerald-600 shrink-0">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                  </svg>
+                  <span class="text-gray-600 shrink-0">{{ crumb.data?.connection ?? 'mysql' }}</span>
+                  <span class="text-gray-300 flex-1 truncate">{{ crumb.message }}</span>
+                  <span v-if="crumb.data?.duration_ms !== undefined"
+                        class="text-gray-600 shrink-0">{{ crumb.data.duration_ms }}ms</span>
                 </div>
               </div>
             </div>
 
-            <!-- Breadcrumbs -->
-            <div v-if="event.breadcrumbs?.length" class="px-4 py-3 border-t border-white/5">
-              <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-2">Breadcrumbs</p>
+            <!-- ── Non-DB breadcrumbs ─────────────────────────────────────── -->
+            <div v-if="nonDbCrumbs(event).length" class="px-5 py-4 border-t border-white/5">
+              <p class="text-[11px] font-semibold text-gray-400 mb-3">Breadcrumbs</p>
               <div class="space-y-1 font-mono text-[11px]">
-                <div v-for="(crumb, ci) in event.breadcrumbs" :key="ci"
+                <div v-for="(crumb, ci) in nonDbCrumbs(event)" :key="ci"
                      class="flex items-start gap-2 text-gray-500">
                   <span class="shrink-0 text-gray-700 tabular-nums">{{ crumb.timestamp ? crumb.timestamp.replace('T', ' ').slice(0, 19) : '' }}</span>
                   <span v-if="crumb.category" :class="crumbColor(crumb.level)" class="shrink-0">{{ crumb.category }}</span>
@@ -191,8 +299,71 @@
               </div>
             </div>
 
-            <!-- Fatal error notice -->
-            <div v-if="event.payload?.is_fatal" class="px-4 py-3 border-t border-white/5">
+            <!-- ── Headers ────────────────────────────────────────────────── -->
+            <div v-if="event.payload?.request?.headers && Object.keys(event.payload.request.headers).length"
+                 class="border-t border-white/5">
+              <details class="group">
+                <summary class="flex items-center justify-between px-5 py-3 text-[11px] font-semibold
+                                text-gray-500 cursor-pointer select-none list-none hover:text-gray-400 transition-colors">
+                  <span>Headers</span>
+                  <span class="transition-transform group-open:rotate-180">▾</span>
+                </summary>
+                <div class="px-5 pb-4">
+                  <div v-for="(val, name) in event.payload.request.headers" :key="name"
+                       class="flex items-baseline gap-2 py-2 border-b border-white/4 last:border-0">
+                    <span class="text-[10px] font-mono text-gray-600 uppercase tracking-wider shrink-0 w-40 truncate">{{ name }}</span>
+                    <span class="flex-1 border-b border-dotted border-white/8 self-end mb-0.5 mx-1 min-w-0"></span>
+                    <span class="text-[11px] font-mono text-gray-400 break-all text-right max-w-xs truncate">{{ val }}</span>
+                  </div>
+                </div>
+              </details>
+            </div>
+
+            <!-- ── Body ───────────────────────────────────────────────────── -->
+            <div v-if="event.payload?.request?.body" class="border-t border-white/5 px-5 py-4">
+              <p class="text-[11px] font-semibold text-gray-500 mb-3">Body</p>
+              <pre class="text-[12px] text-gray-300 font-mono bg-[#090912] rounded-lg px-4 py-3
+                          overflow-x-auto border border-white/5 leading-5 whitespace-pre-wrap">{{ fmt(event.payload.request.body) }}</pre>
+            </div>
+
+            <!-- ── Routing ─────────────────────────────────────────────────── -->
+            <div v-if="event.context?.request?.routing" class="border-t border-white/5 px-5 py-4">
+              <p class="text-[11px] font-semibold text-gray-500 mb-3">Routing</p>
+              <div v-if="event.context.request.routing.controller"
+                   class="flex items-baseline gap-2 py-2 border-b border-white/4">
+                <span class="text-[10px] font-mono text-gray-600 uppercase tracking-wider shrink-0 w-36">Controller</span>
+                <span class="flex-1 border-b border-dotted border-white/8 self-end mb-0.5 mx-1"></span>
+                <span class="text-[11px] font-mono text-gray-300 text-right break-all">{{ event.context.request.routing.controller }}</span>
+              </div>
+              <div v-if="event.context.request.routing.name"
+                   class="flex items-baseline gap-2 py-2 border-b border-white/4">
+                <span class="text-[10px] font-mono text-gray-600 uppercase tracking-wider shrink-0 w-36">Route name</span>
+                <span class="flex-1 border-b border-dotted border-white/8 self-end mb-0.5 mx-1"></span>
+                <span class="text-[11px] font-mono text-violet-400 text-right">{{ event.context.request.routing.name }}</span>
+              </div>
+              <div v-if="event.context.request.routing.middleware?.length"
+                   class="flex items-baseline gap-2 py-2 border-b border-white/4">
+                <span class="text-[10px] font-mono text-gray-600 uppercase tracking-wider shrink-0 w-36">Middleware</span>
+                <span class="flex-1 border-b border-dotted border-white/8 self-end mb-0.5 mx-1"></span>
+                <span class="text-[11px] font-mono text-gray-400 text-right">{{ event.context.request.routing.middleware.join(', ') }}</span>
+              </div>
+              <!-- Routing parameters -->
+              <div class="mt-4">
+                <p class="text-[10px] font-mono text-gray-600 uppercase tracking-wider mb-2">Routing parameters</p>
+                <template v-if="Object.keys(event.context.request.routing.parameters ?? {}).length">
+                  <div v-for="(val, key) in event.context.request.routing.parameters" :key="key"
+                       class="flex items-baseline gap-2 py-1.5 border-b border-white/4 last:border-0">
+                    <span class="text-[11px] font-mono text-gray-600 shrink-0 w-36 truncate">{{ key }}</span>
+                    <span class="flex-1 border-b border-dotted border-white/8 self-end mb-0.5 mx-1"></span>
+                    <span class="text-[11px] font-mono text-amber-400 text-right">{{ val }}</span>
+                  </div>
+                </template>
+                <p v-else class="text-[11px] font-mono text-gray-700">// No routing parameters</p>
+              </div>
+            </div>
+
+            <!-- ── Fatal error notice ─────────────────────────────────────── -->
+            <div v-if="event.payload?.is_fatal" class="px-5 py-4 border-t border-white/5">
               <div class="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5">
                 <span class="text-sm shrink-0 mt-px">⚠️</span>
                 <div>
@@ -207,8 +378,8 @@
               </div>
             </div>
 
-            <!-- Laravel command context -->
-            <div v-if="event.payload?.command" class="px-4 py-3 border-t border-white/5">
+            <!-- ── Laravel command context ────────────────────────────────── -->
+            <div v-if="event.payload?.command" class="px-5 py-4 border-t border-white/5">
               <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-2">Artisan Command</p>
               <div class="flex flex-wrap items-center gap-2">
                 <span class="text-[12px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">
@@ -218,8 +389,7 @@
                       class="text-[11px] font-mono text-red-400 bg-red-500/10 px-2 py-0.5 rounded">
                   exit {{ event.payload.exit_code }}
                 </span>
-                <span v-if="event.payload.input?.trim()"
-                      class="text-[11px] text-gray-400 font-mono">
+                <span v-if="event.payload.input?.trim()" class="text-[11px] text-gray-400 font-mono">
                   {{ event.payload.input }}
                 </span>
               </div>
@@ -235,74 +405,8 @@
               </div>
             </div>
 
-            <!-- Request -->
-            <div v-if="event.payload?.request" class="px-4 py-3 border-t border-white/5">
-              <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-2">Request</p>
-              <!-- Method + URL + IP -->
-              <div class="flex flex-wrap items-center gap-2 mb-3">
-                <span :class="methodColor(event.payload.request.method)"
-                      class="text-[11px] font-bold px-2 py-0.5 rounded font-mono">
-                  {{ event.payload.request.method }}
-                </span>
-                <span class="text-[12px] text-gray-300 font-mono break-all leading-relaxed">{{ event.payload.request.url }}</span>
-                <span v-if="event.payload.request.ip" class="text-[11px] text-gray-600 font-mono shrink-0">
-                  {{ event.payload.request.ip }}
-                </span>
-              </div>
-              <!-- Routing -->
-              <div v-if="event.context?.request?.routing" class="mb-3">
-                <p class="text-[10px] text-gray-700 uppercase tracking-wide font-medium mb-1.5">Routing</p>
-                <div class="bg-[#0a0a10] rounded-lg overflow-hidden border border-white/5 font-mono text-[11px]">
-                  <div v-if="event.context.request.routing.controller"
-                       class="flex items-start gap-3 px-3 py-1.5 border-b border-white/5">
-                    <span class="text-gray-600 shrink-0 w-20">controller</span>
-                    <span class="text-gray-300 break-all">{{ event.context.request.routing.controller }}</span>
-                  </div>
-                  <div v-if="event.context.request.routing.name"
-                       class="flex items-start gap-3 px-3 py-1.5 border-b border-white/5">
-                    <span class="text-gray-600 shrink-0 w-20">route name</span>
-                    <span class="text-violet-400">{{ event.context.request.routing.name }}</span>
-                  </div>
-                  <div v-if="event.context.request.routing.middleware?.length"
-                       class="flex items-start gap-3 px-3 py-1.5 border-b border-white/5">
-                    <span class="text-gray-600 shrink-0 w-20">middleware</span>
-                    <span class="text-gray-400">{{ event.context.request.routing.middleware.join(', ') }}</span>
-                  </div>
-                  <div v-if="Object.keys(event.context.request.routing.parameters ?? {}).length"
-                       class="flex items-start gap-3 px-3 py-1.5">
-                    <span class="text-gray-600 shrink-0 w-20">parameters</span>
-                    <span class="text-amber-400">{{ fmt(event.context.request.routing.parameters) }}</span>
-                  </div>
-                  <div v-if="!event.context.request.routing.controller && !event.context.request.routing.name"
-                       class="px-3 py-1.5 text-gray-700 italic">No routing parameters</div>
-                </div>
-              </div>
-              <!-- Body -->
-              <div v-if="event.payload.request.body" class="mb-3">
-                <p class="text-[10px] text-gray-700 uppercase tracking-wide font-medium mb-1.5">Body</p>
-                <pre class="text-[11px] text-gray-300 font-mono bg-[#0a0a10] rounded-lg px-3 py-2.5 overflow-x-auto border border-white/5 leading-5">{{ fmt(event.payload.request.body) }}</pre>
-              </div>
-              <!-- Headers -->
-              <div v-if="event.payload.request.headers && Object.keys(event.payload.request.headers).length">
-                <details class="group">
-                  <summary class="flex items-center justify-between text-[10px] text-gray-700 uppercase tracking-wide
-                                  font-medium cursor-pointer select-none list-none hover:text-gray-500 transition-colors mb-1.5">
-                    <span>Headers</span>
-                    <span class="transition-transform group-open:rotate-180 inline-block normal-case text-[11px]">▾</span>
-                  </summary>
-                  <div class="bg-[#0a0a10] rounded-lg overflow-hidden border border-white/5 font-mono text-[11px]">
-                    <div v-for="(val, name) in event.payload.request.headers" :key="name"
-                         class="flex items-start gap-3 px-3 py-1.5 border-b border-white/5 last:border-0">
-                      <span class="text-gray-600 shrink-0 w-40 truncate">{{ name }}</span>
-                      <span class="text-gray-400 break-all">{{ val }}</span>
-                    </div>
-                  </div>
-                </details>
-              </div>
-            </div>
-
-            <!-- User -->
-            <div v-if="event.payload?.user" class="px-4 py-3 border-t border-white/5">
+            <!-- ── User ───────────────────────────────────────────────────── -->
+            <div v-if="event.payload?.user" class="px-5 py-4 border-t border-white/5">
               <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-2">User</p>
               <div class="flex flex-wrap gap-2">
                 <span v-if="event.payload.user.id"       class="text-[11px] text-gray-400 bg-white/5 px-2 py-0.5 rounded font-mono">ID: {{ event.payload.user.id }}</span>
@@ -311,8 +415,8 @@
               </div>
             </div>
 
-            <!-- WordPress platform metadata -->
-            <div v-if="event.context?.platform === 'wordpress'" class="px-4 py-3 border-t border-white/5">
+            <!-- ── WordPress platform metadata ────────────────────────────── -->
+            <div v-if="event.context?.platform === 'wordpress'" class="px-5 py-4 border-t border-white/5">
               <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-2">Platform</p>
               <div class="flex flex-wrap items-center gap-2 mb-2">
                 <span v-if="event.context.wordpress" class="text-[11px] font-semibold px-2 py-0.5 rounded bg-blue-600/20 text-blue-300">
@@ -329,15 +433,15 @@
                 </span>
               </div>
               <div class="flex flex-wrap gap-1.5">
-                <span v-if="event.context.is_admin"    class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 font-semibold">admin</span>
-                <span v-if="event.context.multisite"   class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-semibold">multisite</span>
-                <span v-if="event.context.wp_debug"    class="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 font-semibold">WP_DEBUG</span>
+                <span v-if="event.context.is_admin"     class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 font-semibold">admin</span>
+                <span v-if="event.context.multisite"    class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-semibold">multisite</span>
+                <span v-if="event.context.wp_debug"     class="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 font-semibold">WP_DEBUG</span>
                 <span v-if="event.context.wp_debug_log" class="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 font-semibold">DEBUG_LOG</span>
               </div>
             </div>
 
-            <!-- Active plugins (collapsible) -->
-            <div v-if="event.context?.active_plugins?.length" class="px-4 py-3 border-t border-white/5">
+            <!-- ── Active plugins ─────────────────────────────────────────── -->
+            <div v-if="event.context?.active_plugins?.length" class="px-5 py-4 border-t border-white/5">
               <div class="flex items-center justify-between mb-1.5">
                 <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium">Active plugins</p>
                 <button @click="togglePlugins(event.id)"
@@ -348,39 +452,33 @@
                 </button>
               </div>
               <div v-if="expandedPlugins.has(event.id)"
-                   class="font-mono text-[11px] text-gray-500 space-y-0.5 max-h-36 overflow-y-auto
-                          scrollbar-thin scrollbar-thumb-white/10">
+                   class="font-mono text-[11px] text-gray-500 space-y-0.5 max-h-36 overflow-y-auto">
                 <div v-for="p in event.context.active_plugins" :key="p"
                      class="truncate hover:text-gray-400 transition-colors">{{ p }}</div>
               </div>
               <div v-else class="text-[11px] text-gray-700 italic">Click to expand</div>
             </div>
 
-            <!-- Extra context: non-WP platforms, or raw fallback -->
-            <div v-if="event.context && event.context.platform !== 'wordpress'" class="border-t border-white/5">
+            <!-- ── Extra context (non-WP, non-routing) ────────────────────── -->
+            <div v-if="event.context && event.context.platform !== 'wordpress' && !event.context.request"
+                 class="border-t border-white/5">
               <details class="group">
-                <summary class="flex items-center justify-between px-4 py-2.5 text-[11px] text-gray-600
+                <summary class="flex items-center justify-between px-5 py-2.5 text-[11px] text-gray-600
                                hover:text-gray-400 cursor-pointer select-none list-none transition-colors">
                   <span>Extra context</span>
                   <span class="transition-transform group-open:rotate-180 inline-block">▾</span>
                 </summary>
-                <div class="px-4 pb-4">
-                  <pre class="text-[11px] text-gray-400 bg-[#0a0a10] rounded-lg p-3 overflow-x-auto">{{ fmt(event.context) }}</pre>
+                <div class="px-5 pb-4">
+                  <pre class="text-[11px] text-gray-400 bg-[#090912] rounded-lg p-3 overflow-x-auto">{{ fmt(event.context) }}</pre>
                 </div>
               </details>
-            </div>
-
-            <!-- Empty state -->
-            <div v-if="!event.payload?.is_fatal && !event.payload?.request && !event.payload?.user && !event.context"
-                 class="px-4 py-3 border-t border-white/5">
-              <p class="text-[11px] text-gray-600 italic">No additional context captured</p>
             </div>
 
           </div>
         </div>
       </div>
 
-      <!-- AI Analysis panel -->
+      <!-- ── AI Analysis panel ──────────────────────────────────────────── -->
       <div class="mb-6">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-[11px] text-gray-500 uppercase tracking-wide font-medium flex items-center gap-1.5">
@@ -404,14 +502,11 @@
           </button>
         </div>
 
-        <!-- Error -->
         <div v-if="aiError" class="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">
           {{ aiError }}
         </div>
 
-        <!-- Results -->
         <div v-else-if="ai" class="space-y-3">
-          <!-- Severity + root cause row -->
           <div class="bg-[#111119] border border-white/6 rounded-xl p-4">
             <div class="flex items-start gap-3">
               <span :class="severityBadge(ai.severity)"
@@ -421,37 +516,27 @@
               <p class="text-[13px] text-gray-200 font-medium leading-snug">{{ ai.root_cause }}</p>
             </div>
           </div>
-
-          <!-- Explanation -->
           <div class="bg-[#111119] border border-white/6 rounded-xl p-4">
             <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-1.5">Explanation</p>
             <p class="text-[13px] text-gray-300 leading-relaxed">{{ ai.explanation }}</p>
           </div>
-
-          <!-- Fix suggestion -->
           <div class="bg-[#111119] border border-white/6 rounded-xl p-4">
             <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-1.5">How to fix</p>
             <p class="text-[13px] text-gray-300 leading-relaxed">{{ ai.fix_suggestion }}</p>
           </div>
-
-          <!-- Code example -->
           <div v-if="ai.code_example" class="bg-[#111119] border border-white/6 rounded-xl overflow-hidden">
             <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium px-4 pt-3 pb-2">Code example</p>
             <pre class="text-[12px] text-gray-300 font-mono bg-[#0a0a10] px-4 pb-4 overflow-x-auto leading-5 whitespace-pre-wrap">{{ ai.code_example }}</pre>
           </div>
-
-          <!-- Prevention -->
           <div v-if="ai.prevention" class="bg-[#111119] border border-white/6 rounded-xl p-4">
             <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-1.5">Prevention</p>
             <p class="text-[13px] text-gray-400 leading-relaxed">{{ ai.prevention }}</p>
           </div>
-
           <p class="text-[10px] text-gray-700 text-right">
             Powered by {{ ai.model }} · {{ ai.cached ? 'cached result' : 'fresh analysis' }}
           </p>
         </div>
 
-        <!-- Prompt -->
         <div v-else class="bg-[#111119] border border-white/6 rounded-xl px-4 py-6 text-center">
           <p class="text-[13px] text-gray-500">Click <span class="text-violet-400 font-medium">Analyse with AI</span> to get root cause, fix suggestions, and prevention tips powered by Claude.</p>
         </div>
@@ -479,17 +564,18 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 
-const route           = useRoute()
-const router          = useRouter()
-const issue           = ref(null)
-const loading         = ref(true)
-const ai              = ref(null)
-const aiLoading       = ref(false)
-const aiError         = ref(null)
-const showAssignee    = ref(false)
-const assigneeInput   = ref('')
-const expandedPlugins = ref(new Set())
-const expandedFrames  = ref(new Set())
+const route                = useRoute()
+const router               = useRouter()
+const issue                = ref(null)
+const loading              = ref(true)
+const ai                   = ref(null)
+const aiLoading            = ref(false)
+const aiError              = ref(null)
+const showAssignee         = ref(false)
+const assigneeInput        = ref('')
+const expandedPlugins      = ref(new Set())
+const collapsedFrames      = ref(new Set())
+const expandedVendorGroups = ref(new Set())
 
 function togglePlugins(eventId) {
   const s = new Set(expandedPlugins.value)
@@ -498,22 +584,66 @@ function togglePlugins(eventId) {
   expandedPlugins.value = s
 }
 
-function toggleFrame(eventIdx, frameIdx) {
-  const key = `${eventIdx}-${frameIdx}`
-  const s = new Set(expandedFrames.value)
+// Collapse/expand individual code snippets (open by default)
+function toggleFrame(eventIdx, groupIdx) {
+  const key = `${eventIdx}-${groupIdx}`
+  const s = new Set(collapsedFrames.value)
   if (s.has(key)) s.delete(key)
   else s.add(key)
-  expandedFrames.value = s
+  collapsedFrames.value = s
+}
+
+function toggleVendorGroup(eventIdx, groupIdx) {
+  const key = `${eventIdx}-${groupIdx}`
+  const s = new Set(expandedVendorGroups.value)
+  if (s.has(key)) s.delete(key)
+  else s.add(key)
+  expandedVendorGroups.value = s
+}
+
+function isVendorFrame(frame) {
+  const file = (frame.file ?? '').replace(/\\/g, '/')
+  return file.includes('/vendor/') || file.includes('\\vendor\\')
+}
+
+function groupFrames(frames) {
+  const groups = []
+  let vendorBatch = []
+  for (const frame of frames) {
+    if (isVendorFrame(frame)) {
+      vendorBatch.push(frame)
+    } else {
+      if (vendorBatch.length) {
+        groups.push({ type: 'vendor', frames: vendorBatch })
+        vendorBatch = []
+      }
+      groups.push({ type: 'app', frame })
+    }
+  }
+  if (vendorBatch.length) groups.push({ type: 'vendor', frames: vendorBatch })
+  return groups
+}
+
+function dbCrumbs(event) {
+  return (event.breadcrumbs ?? []).filter(c => c.category === 'db' || c.type === 'query')
+}
+
+function nonDbCrumbs(event) {
+  return (event.breadcrumbs ?? []).filter(c => c.category !== 'db' && c.type !== 'query')
+}
+
+function shortPath(file) {
+  if (!file) return ''
+  return file.replace(/\\/g, '/').split('/').slice(-2).join('/')
 }
 
 onMounted(async () => {
   try {
     const [issueRes] = await Promise.all([
       axios.get(`/api/issues/${route.params.id}`),
-      // Silently load cached AI analysis if it exists
       axios.get(`/api/issues/${route.params.id}/analyze`)
         .then(r => { ai.value = r.data })
-        .catch(() => {}), // 404 means no analysis yet — that's fine
+        .catch(() => {}),
     ])
     issue.value = issueRes.data
   } finally {
