@@ -21,16 +21,16 @@
         </router-link>
       </div>
 
-      <!-- Status tabs -->
+      <!-- Status / view tabs -->
       <div class="flex items-center bg-[#111119] border border-white/6 rounded-lg p-1 gap-0.5">
         <button
-          v-for="s in ['unresolved', 'resolved', 'ignored']"
-          :key="s"
-          @click="setStatus(s)"
-          :class="status === s ? 'bg-violet-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'"
+          v-for="t in TABS"
+          :key="t.value"
+          @click="setTab(t.value)"
+          :class="tab === t.value ? 'bg-violet-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'"
           class="px-3 py-1 rounded-md text-xs font-medium capitalize transition-all"
         >
-          {{ s }}
+          {{ t.label }}
         </button>
       </div>
     </div>
@@ -55,9 +55,10 @@
       </div>
     </div>
 
-    <!-- Search + Environment filter row -->
+    <!-- Search + filters -->
     <div class="flex gap-2 mb-4">
       <input
+        v-if="tab !== 'vitals'"
         v-model="search"
         @input="onSearch"
         type="text"
@@ -65,6 +66,10 @@
         class="flex-1 bg-[#111119] border border-white/6 rounded-xl px-4 py-2.5 text-sm text-gray-200
                placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition-colors"
       />
+      <div v-else class="flex-1 flex items-center gap-2 bg-[#111119] border border-white/6 rounded-xl px-4 py-2.5">
+        <span class="text-xs text-violet-400 font-medium">Performance vitals</span>
+        <span class="text-[10px] text-gray-600">· Web Core Vitals events</span>
+      </div>
       <select
         v-model="environment"
         @change="refetch"
@@ -72,9 +77,7 @@
                focus:outline-none focus:border-violet-500/50 transition-colors"
       >
         <option value="">All envs</option>
-        <option value="production">Production</option>
-        <option value="staging">Staging</option>
-        <option value="development">Development</option>
+        <option v-for="env in ENVIRONMENTS" :key="env" :value="env" class="capitalize">{{ env }}</option>
       </select>
       <select
         v-model="release"
@@ -110,7 +113,7 @@
             Ignore
           </button>
           <button
-            @click="selected.clear(); selected = new Set()"
+            @click="selected = new Set()"
             class="text-xs text-gray-500 hover:text-gray-300 px-2 transition-colors"
           >
             ✕
@@ -126,18 +129,23 @@
 
     <!-- Empty state -->
     <div v-else-if="!store.issues.length" class="flex flex-col items-center justify-center py-24 text-center">
-      <div class="text-3xl mb-3">{{ search ? '🔍' : '🎉' }}</div>
+      <div class="text-3xl mb-3">{{ tab === 'vitals' ? '📊' : search ? '🔍' : '🎉' }}</div>
       <p class="text-gray-300 font-medium">
-        {{ search ? 'No issues matching "' + search + '"' : 'No ' + status + ' issues' }}
+        {{ tab === 'vitals' ? 'No performance vitals recorded yet'
+           : search ? 'No issues matching "' + search + '"'
+           : 'No ' + tab + ' issues' }}
       </p>
-      <p class="text-gray-500 text-sm mt-1">{{ search ? 'Try a different search term' : 'This project is clean' }}</p>
+      <p class="text-gray-500 text-sm mt-1">
+        {{ tab === 'vitals' ? 'Vitals appear once your browser SDK reports Web Core Vitals'
+           : search ? 'Try a different search term' : 'This project is clean' }}
+      </p>
     </div>
 
     <!-- Issue table -->
     <div v-else class="rounded-xl border border-white/6 overflow-visible">
 
       <!-- Table header -->
-      <div class="grid grid-cols-[24px_1fr_80px_96px_36px] gap-0 bg-[#0d0d16] border-b border-white/5
+      <div class="grid grid-cols-[24px_1fr_80px_80px_96px_36px] gap-0 bg-[#0d0d16] border-b border-white/5
                   text-[10px] font-semibold text-gray-500 uppercase tracking-widest">
         <div class="flex items-center justify-center py-2">
           <input
@@ -149,6 +157,7 @@
           />
         </div>
         <span class="px-4 py-2">Issue</span>
+        <span class="text-center py-2">Priority</span>
         <span class="text-right pr-3 py-2">Events</span>
         <span class="text-right pr-3 py-2">Last seen</span>
         <span></span>
@@ -159,7 +168,7 @@
         <div
           v-for="issue in store.issues"
           :key="issue.id"
-          class="grid grid-cols-[24px_1fr_80px_96px_36px] gap-0 items-center bg-[#111119] hover:bg-[#13131f] transition-colors group relative"
+          class="grid grid-cols-[24px_1fr_80px_80px_96px_36px] gap-0 items-center bg-[#111119] hover:bg-[#13131f] transition-colors group relative"
           :class="{ 'bg-violet-600/5': selected.has(issue.id) }"
         >
           <!-- Checkbox -->
@@ -193,6 +202,16 @@
             </span>
           </router-link>
 
+          <!-- Priority -->
+          <div class="flex items-center justify-center py-3.5">
+            <span v-if="issue.priority"
+                  :class="priorityBadge(issue.priority)"
+                  class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+              {{ issue.priority }}
+            </span>
+            <span v-else class="text-gray-700 text-[10px]">—</span>
+          </div>
+
           <!-- Event count -->
           <router-link :to="`/issues/${issue.id}`"
             class="text-xs text-gray-500 tabular-nums text-right pr-3 py-3.5 shrink-0 hover:text-gray-300">
@@ -222,29 +241,44 @@
             <Transition name="dropdown">
               <div
                 v-if="openMenu === issue.id"
-                class="absolute right-0 top-full mt-1 w-36 bg-[#1a1a28] border border-white/10
+                class="absolute right-0 top-full mt-1 w-40 bg-[#1a1a28] border border-white/10
                        rounded-lg shadow-xl shadow-black/40 z-50 overflow-hidden"
               >
+                <!-- Resolve -->
                 <button
                   @click.stop="action('resolve', issue.id)"
-                  class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-300
-                         hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors text-left"
+                  class="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors text-left"
+                  :class="isPending(issue.id, 'resolve')
+                    ? 'bg-emerald-500/20 text-emerald-300 font-semibold'
+                    : 'text-gray-300 hover:bg-emerald-500/10 hover:text-emerald-400'"
                 >
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="2 8 6 12 14 4"/>
                   </svg>
-                  Resolve
+                  {{ isPending(issue.id, 'resolve') ? 'Confirm resolve?' : 'Resolve' }}
                 </button>
+                <!-- Ignore -->
                 <button
                   @click.stop="action('ignore', issue.id)"
-                  class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-300
-                         hover:bg-white/5 hover:text-gray-200 transition-colors text-left"
+                  class="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors text-left"
+                  :class="isPending(issue.id, 'ignore')
+                    ? 'bg-red-500/15 text-red-300 font-semibold'
+                    : 'text-gray-300 hover:bg-white/5 hover:text-gray-200'"
                 >
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                     <circle cx="8" cy="8" r="6"/><line x1="5" y1="5" x2="11" y2="11"/>
                   </svg>
-                  Ignore
+                  {{ isPending(issue.id, 'ignore') ? 'Confirm ignore?' : 'Ignore' }}
                 </button>
+                <!-- Cancel pending -->
+                <div v-if="menuConfirm" class="border-t border-white/5">
+                  <button
+                    @click.stop="menuConfirm = null"
+                    class="w-full px-3 py-1.5 text-[11px] text-gray-600 hover:text-gray-400 transition-colors text-left"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </Transition>
           </div>
@@ -273,27 +307,63 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
-import { useIssuesStore } from '../stores/issues'
+import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import { useIssuesStore } from '../stores/issues'
+import { useToastStore }  from '../stores/toast'
+import { ENVIRONMENTS, levelBadge, levelDot, envBadge, priorityBadge } from '../composables/useColors'
 
 const route  = useRoute()
+const router = useRouter()
 const store  = useIssuesStore()
-const status = ref('unresolved')
-const search = ref('')
-const environment = ref('')
-const release  = ref('')
-const releases = ref([])
-const openMenu = ref(null)
-const selected = ref(new Set())
+const toast  = useToastStore()
+
+const TABS = [
+  { value: 'unresolved', label: 'Unresolved' },
+  { value: 'resolved',   label: 'Resolved' },
+  { value: 'ignored',    label: 'Ignored' },
+  { value: 'vitals',     label: 'Vitals' },
+]
+
+// ── Filter state — initialised from URL query ─────────────────────────────────
+const tab         = ref(route.query.tab         ?? 'unresolved')
+const search      = ref(route.query.search      ?? '')
+const environment = ref(route.query.env         ?? '')
+const release     = ref(route.query.release     ?? '')
+const releases    = ref([])
+const openMenu    = ref(null)
+const menuConfirm = ref(null) // { id, type } — pending confirmation for ellipsis action
+const selected    = ref(new Set())
 
 let searchTimer = null
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function activeStatus() { return tab.value === 'vitals' ? 'unresolved' : tab.value }
+function activeSearch()  { return tab.value === 'vitals' ? 'Performance vitals' : search.value }
+
+function syncQuery() {
+  router.replace({ query: {
+    ...(tab.value !== 'unresolved' ? { tab: tab.value }       : {}),
+    ...(search.value               ? { search: search.value } : {}),
+    ...(environment.value          ? { env: environment.value } : {}),
+    ...(release.value              ? { release: release.value } : {}),
+  }})
+}
+
+function fetchIssues() {
+  store.fetch(route.params.id, activeStatus(), {
+    search:      activeSearch(),
+    environment: environment.value,
+    release:     release.value,
+  })
+}
+
+// ── Lifecycle ─────────────────────────────────────────────────────────────────
 onMounted(async () => {
   store.fetchStats()
-  store.fetch(route.params.id, status.value)
-  document.addEventListener('click', closeMenu)
-  // Load releases for filter dropdown
+  fetchIssues()
+  document.addEventListener('click',   closeMenu)
+  document.addEventListener('keydown', onKeydown)
   try {
     const { data } = await axios.get(`/api/projects/${route.params.id}/releases`)
     releases.value = data.data
@@ -301,27 +371,51 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', closeMenu)
+  document.removeEventListener('click',   closeMenu)
+  document.removeEventListener('keydown', onKeydown)
 })
 
-function closeMenu() { openMenu.value = null }
-function toggleMenu(id) { openMenu.value = openMenu.value === id ? null : id }
-
-function action(type, id) {
-  openMenu.value = null
-  if (type === 'resolve') store.resolve(id)
-  else store.ignore(id)
+// ── Keyboard ──────────────────────────────────────────────────────────────────
+function onKeydown(e) {
+  if (e.key === 'Escape') closeMenu()
 }
 
-function setStatus(s) {
-  status.value = s
+// ── Menu ──────────────────────────────────────────────────────────────────────
+function closeMenu()      { openMenu.value = null; menuConfirm.value = null }
+function toggleMenu(id)   {
+  if (openMenu.value === id) { closeMenu() }
+  else { openMenu.value = id; menuConfirm.value = null }
+}
+function isPending(id, type) {
+  return menuConfirm.value?.id === id && menuConfirm.value?.type === type
+}
+
+async function action(type, id) {
+  if (isPending(id, type)) {
+    closeMenu()
+    try {
+      if (type === 'resolve') await store.resolve(id)
+      else                    await store.ignore(id)
+    } catch {
+      toast.error(`Failed to ${type} issue`)
+    }
+  } else {
+    menuConfirm.value = { id, type }
+  }
+}
+
+// ── Tab / filter changes ──────────────────────────────────────────────────────
+function setTab(t) {
+  tab.value = t
   selected.value = new Set()
-  store.fetch(route.params.id, s, { search: search.value, environment: environment.value, release: release.value })
+  syncQuery()
+  fetchIssues()
 }
 
 function refetch() {
   selected.value = new Set()
-  store.fetch(route.params.id, status.value, { search: search.value, environment: environment.value, release: release.value })
+  syncQuery()
+  fetchIssues()
 }
 
 function onSearch() {
@@ -330,7 +424,7 @@ function onSearch() {
 }
 
 function loadMore() {
-  store.fetchMore(route.params.id, status.value, search.value, environment.value, release.value)
+  store.fetchMore(route.params.id, activeStatus(), activeSearch(), environment.value, release.value)
 }
 
 // ── Bulk selection ────────────────────────────────────────────────────────────
@@ -345,37 +439,30 @@ function toggleSelect(id) {
 }
 
 function toggleAll() {
-  if (allSelected.value) {
-    selected.value = new Set()
-  } else {
-    selected.value = new Set(store.issues.map(i => i.id))
-  }
+  selected.value = allSelected.value ? new Set() : new Set(store.issues.map(i => i.id))
 }
 
 async function bulkResolve() {
   const ids = [...selected.value]
   selected.value = new Set()
-  await store.bulkResolve(ids)
+  try {
+    await store.bulkResolve(ids)
+  } catch {
+    toast.error('Failed to resolve selected issues')
+  }
 }
 
 async function bulkIgnore() {
   const ids = [...selected.value]
   selected.value = new Set()
-  await store.bulkIgnore(ids)
+  try {
+    await store.bulkIgnore(ids)
+  } catch {
+    toast.error('Failed to ignore selected issues')
+  }
 }
 
-// ── Styling ───────────────────────────────────────────────────────────────────
-const levelDot = (level) =>
-  ({ error: 'bg-red-400', warning: 'bg-amber-400', info: 'bg-blue-400' })[level] ?? 'bg-gray-500'
-
-const levelBadge = (level) =>
-  ({ error: 'bg-red-500/15 text-red-400', warning: 'bg-amber-500/15 text-amber-400', info: 'bg-blue-500/15 text-blue-400' })[level]
-  ?? 'bg-gray-700/50 text-gray-400'
-
-const envBadge = (env) =>
-  ({ staging: 'bg-amber-500/15 text-amber-400', development: 'bg-emerald-500/15 text-emerald-400' })[env]
-  ?? 'bg-gray-700/50 text-gray-400'
-
+// ── Time formatting ───────────────────────────────────────────────────────────
 function timeAgo(date) {
   const diff = Math.floor((Date.now() - new Date(date)) / 1000)
   if (diff < 60)    return `${diff}s ago`

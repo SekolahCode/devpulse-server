@@ -43,9 +43,23 @@
       <router-view />
     </main>
 
-    <!-- Toast stack -->
+    <!-- Toast stack (live events + error/success notifications) -->
     <div class="fixed bottom-5 right-5 flex flex-col gap-2 z-50 pointer-events-none">
       <transition-group name="toast">
+
+        <!-- Error / success / info toasts -->
+        <div
+          v-for="t in toastStore.toasts"
+          :key="`t-${t.id}`"
+          class="pointer-events-auto w-80 rounded-xl p-3.5 shadow-2xl flex items-start gap-3 cursor-pointer"
+          :class="toastStyle(t.type)"
+          @click="toastStore.dismiss(t.id)"
+        >
+          <span class="text-base shrink-0 mt-px">{{ toastIcon(t.type) }}</span>
+          <p class="text-[13px] leading-snug flex-1">{{ t.message }}</p>
+        </div>
+
+        <!-- Live event toasts -->
         <div
           v-for="event in liveToasts"
           :key="event.issue_id + event.ts"
@@ -61,6 +75,7 @@
           </div>
           <p class="text-[13px] text-gray-200 truncate">{{ event.title }}</p>
         </div>
+
       </transition-group>
     </div>
 
@@ -72,9 +87,13 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useIssuesStore } from './stores/issues'
+import { useToastStore }  from './stores/toast'
+import { levelBadge } from './composables/useColors'
 
-const store       = useIssuesStore()
-const router      = useRouter()
+const store      = useIssuesStore()
+const toastStore = useToastStore()
+const router     = useRouter()
+
 const wsConnected = ref(false)
 const liveToasts  = ref([])
 const isLoggedIn  = ref(!!localStorage.getItem('devpulse_token'))
@@ -86,9 +105,14 @@ function logout() {
   router.push('/login')
 }
 
-const levelBadge = (level) =>
-  ({ error: 'bg-red-500/15 text-red-400', warning: 'bg-amber-500/15 text-amber-400', info: 'bg-blue-500/15 text-blue-400' })[level]
-  ?? 'bg-gray-500/15 text-gray-400'
+const toastStyle = (type) =>
+  ({ error:   'bg-red-500/15 border border-red-500/25 text-red-200',
+     success:  'bg-emerald-500/15 border border-emerald-500/25 text-emerald-200',
+     info:     'bg-blue-500/15 border border-blue-500/25 text-blue-200' })[type]
+  ?? 'bg-[#17171f] border border-white/8 text-gray-200'
+
+const toastIcon = (type) =>
+  ({ error: '✕', success: '✓', info: 'ℹ' })[type] ?? '•'
 
 onMounted(() => {
   let delay = 1000
@@ -100,13 +124,13 @@ onMounted(() => {
 
     ws.onopen = () => {
       wsConnected.value = true
-      delay = 1000  // reset backoff on successful connect
+      delay = 1000
     }
 
     ws.onclose = () => {
       wsConnected.value = false
       setTimeout(connect, delay)
-      delay = Math.min(delay * 2, 30_000)  // exponential backoff, max 30s
+      delay = Math.min(delay * 2, 30_000)
     }
 
     ws.onmessage = ({ data }) => {
