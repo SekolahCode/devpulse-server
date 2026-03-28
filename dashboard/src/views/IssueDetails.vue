@@ -238,7 +238,8 @@
             <!-- Request -->
             <div v-if="event.payload?.request" class="px-4 py-3 border-t border-white/5">
               <p class="text-[10px] text-gray-600 uppercase tracking-wide font-medium mb-2">Request</p>
-              <div class="flex flex-wrap items-center gap-2">
+              <!-- Method + URL + IP -->
+              <div class="flex flex-wrap items-center gap-2 mb-3">
                 <span :class="methodColor(event.payload.request.method)"
                       class="text-[11px] font-bold px-2 py-0.5 rounded font-mono">
                   {{ event.payload.request.method }}
@@ -247,6 +248,56 @@
                 <span v-if="event.payload.request.ip" class="text-[11px] text-gray-600 font-mono shrink-0">
                   {{ event.payload.request.ip }}
                 </span>
+              </div>
+              <!-- Routing -->
+              <div v-if="event.context?.request?.routing" class="mb-3">
+                <p class="text-[10px] text-gray-700 uppercase tracking-wide font-medium mb-1.5">Routing</p>
+                <div class="bg-[#0a0a10] rounded-lg overflow-hidden border border-white/5 font-mono text-[11px]">
+                  <div v-if="event.context.request.routing.controller"
+                       class="flex items-start gap-3 px-3 py-1.5 border-b border-white/5">
+                    <span class="text-gray-600 shrink-0 w-20">controller</span>
+                    <span class="text-gray-300 break-all">{{ event.context.request.routing.controller }}</span>
+                  </div>
+                  <div v-if="event.context.request.routing.name"
+                       class="flex items-start gap-3 px-3 py-1.5 border-b border-white/5">
+                    <span class="text-gray-600 shrink-0 w-20">route name</span>
+                    <span class="text-violet-400">{{ event.context.request.routing.name }}</span>
+                  </div>
+                  <div v-if="event.context.request.routing.middleware?.length"
+                       class="flex items-start gap-3 px-3 py-1.5 border-b border-white/5">
+                    <span class="text-gray-600 shrink-0 w-20">middleware</span>
+                    <span class="text-gray-400">{{ event.context.request.routing.middleware.join(', ') }}</span>
+                  </div>
+                  <div v-if="Object.keys(event.context.request.routing.parameters ?? {}).length"
+                       class="flex items-start gap-3 px-3 py-1.5">
+                    <span class="text-gray-600 shrink-0 w-20">parameters</span>
+                    <span class="text-amber-400">{{ fmt(event.context.request.routing.parameters) }}</span>
+                  </div>
+                  <div v-if="!event.context.request.routing.controller && !event.context.request.routing.name"
+                       class="px-3 py-1.5 text-gray-700 italic">No routing parameters</div>
+                </div>
+              </div>
+              <!-- Body -->
+              <div v-if="event.payload.request.body" class="mb-3">
+                <p class="text-[10px] text-gray-700 uppercase tracking-wide font-medium mb-1.5">Body</p>
+                <pre class="text-[11px] text-gray-300 font-mono bg-[#0a0a10] rounded-lg px-3 py-2.5 overflow-x-auto border border-white/5 leading-5">{{ fmt(event.payload.request.body) }}</pre>
+              </div>
+              <!-- Headers -->
+              <div v-if="event.payload.request.headers && Object.keys(event.payload.request.headers).length">
+                <details class="group">
+                  <summary class="flex items-center justify-between text-[10px] text-gray-700 uppercase tracking-wide
+                                  font-medium cursor-pointer select-none list-none hover:text-gray-500 transition-colors mb-1.5">
+                    <span>Headers</span>
+                    <span class="transition-transform group-open:rotate-180 inline-block normal-case text-[11px]">▾</span>
+                  </summary>
+                  <div class="bg-[#0a0a10] rounded-lg overflow-hidden border border-white/5 font-mono text-[11px]">
+                    <div v-for="(val, name) in event.payload.request.headers" :key="name"
+                         class="flex items-start gap-3 px-3 py-1.5 border-b border-white/5 last:border-0">
+                      <span class="text-gray-600 shrink-0 w-40 truncate">{{ name }}</span>
+                      <span class="text-gray-400 break-all">{{ val }}</span>
+                    </div>
+                  </div>
+                </details>
               </div>
             </div>
 
