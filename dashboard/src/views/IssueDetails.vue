@@ -507,8 +507,8 @@
               <div v-else class="text-[11px] text-gray-700 italic">Click to expand</div>
             </div>
 
-            <!-- ── Extra context (non-WP, non-routing) ────────────────────── -->
-            <div v-if="event.context && event.context.platform !== 'wordpress' && !event.context.request"
+            <!-- ── Extra context (non-WP, non-routing, non-vitals) ──────────── -->
+            <div v-if="event.context && event.context.platform !== 'wordpress' && !event.context.request && !isVitalsEvent(event)"
                  class="border-t border-white/5">
               <details class="group">
                 <summary class="flex items-center justify-between px-5 py-2.5 text-[11px] text-gray-600
@@ -744,7 +744,13 @@ function vitalColor(score) {
 function getVitals(event) {
   const v = event.context?.vitals ?? {}
   return Object.entries(VITAL_META)
-    .filter(([key]) => v[key] !== undefined)
+    .filter(([key, meta]) => {
+      const val = v[key]
+      if (val === undefined) return false
+      // Skip zero-value ms metrics — 0 means the measurement wasn't captured
+      if (meta.unit === 'ms' && val <= 0) return false
+      return true
+    })
     .map(([key, meta]) => {
       const value = v[key]
       const score = vitalScore(key, value)
