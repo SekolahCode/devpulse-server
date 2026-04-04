@@ -8,6 +8,7 @@ mod queue;
 mod rate_limit;
 mod retention;
 mod routes;
+mod trace_id;
 mod worker;
 mod ws;
 
@@ -25,7 +26,7 @@ use deadpool_redis::{Config as RedisConfig, Runtime};
 use include_dir::{include_dir, Dir};
 use rate_limit::RateLimiter;
 use reqwest::Client;
-use std::sync::Arc;
+use std::sync::{atomic::AtomicU64, Arc};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 static WEB_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/web/dist");
@@ -70,14 +71,18 @@ fn mime_for(path: &str) -> &'static str {
 
 #[derive(Clone)]
 pub struct AppState {
-    pub pg_pool:       sqlx::PgPool,
-    pub redis_pool:    deadpool_redis::Pool,
-    pub redis_url:     String,             // for WS pub/sub dedicated connections
-    pub rate_limiter:  Arc<RateLimiter>,
-    pub http_client:   Client,
-    pub anthropic_key: Option<String>,
-    pub openai_key:    Option<String>,
-    pub gemini_key:    Option<String>,
+    pub pg_pool:         sqlx::PgPool,
+    pub redis_pool:      deadpool_redis::Pool,
+    pub redis_url:       String,             // for WS pub/sub dedicated connections
+    pub rate_limiter:    Arc<RateLimiter>,
+    pub http_client:     Client,
+    pub anthropic_key:   Option<String>,
+    pub openai_key:      Option<String>,
+    pub gemini_key:      Option<String>,
+    /// Cumulative count of successfully processed worker jobs since startup.
+    pub jobs_processed:  Arc<AtomicU64>,
+    /// Cumulative count of worker jobs that failed and were dead-lettered.
+    pub jobs_failed:     Arc<AtomicU64>,
 }
 
 #[tokio::main]
@@ -137,6 +142,9 @@ async fn main() {
         tracing::info!("🤖 AI analysis enabled ({})", ai_providers.join(", "));
     }
 
+    let jobs_processed = Arc::new(AtomicU64::new(0));
+    let jobs_failed    = Arc::new(AtomicU64::new(0));
+
     let state = AppState {
         pg_pool:       pg_pool.clone(),
         redis_pool:    redis_pool.clone(),
@@ -146,10 +154,12 @@ async fn main() {
         anthropic_key,
         openai_key,
         gemini_key,
+        jobs_processed: jobs_processed.clone(),
+        jobs_failed:    jobs_failed.clone(),
     };
 
     // ── Background: event worker ──────────────────────────────────────────────
-    tokio::spawn(worker::run(redis_pool.clone(), pg_pool.clone()));
+    tokio::spawn(worker::run(redis_pool.clone(), pg_pool.clone(), jobs_processed, jobs_failed));
     tracing::info!("⚙️  Event worker spawned");
 
     // ── Background: event retention ───────────────────────────────────────────
@@ -197,9 +207,15 @@ async fn main() {
         .layer(middleware::from_fn(auth::require_admin_token));
 
     let cors = {
+        // X-API-Key must be in allow_headers so browser pre-flight (OPTIONS) passes.
+        // X-Trace-Id must be in allow_headers (inbound) and expose_headers (outbound)
+        // so callers can both propagate and read back their trace ID.
+        let x_api_key   = header::HeaderName::from_static("x-api-key");
+        let x_trace_id  = header::HeaderName::from_static("x-trace-id");
         let layer = CorsLayer::new()
-            .allow_methods([Method::POST, Method::OPTIONS])
-            .allow_headers([header::CONTENT_TYPE]);
+            .allow_methods([Method::POST, Method::GET, Method::OPTIONS])
+            .allow_headers([header::CONTENT_TYPE, x_api_key, x_trace_id.clone()])
+            .expose_headers([x_trace_id]);
         if let Ok(origin) = std::env::var("CORS_ORIGIN") {
             match origin.parse::<axum::http::HeaderValue>() {
                 Ok(v)  => layer.allow_origin(v),
@@ -216,13 +232,16 @@ async fn main() {
     let app = Router::new()
         .route("/health",               get(routes::health::health_check))
         .route("/metrics",              get(routes::metrics::metrics))
-        .route("/api/ingest/{api_key}", post(routes::ingest::handle_ingest)
+        .route("/api/ingest", post(routes::ingest::handle_ingest)
             // Ingest body capped at 256 KB — prevents OOM from malicious payloads
             .layer(DefaultBodyLimit::max(256 * 1024)))
         .route("/ws",                   get(ws::ws_handler))
         .merge(protected)
         .fallback(serve_spa)
         .layer(cors)
+        // Attach a UUID trace ID to every request (sourced from X-Trace-Id header
+        // when present, otherwise generated). Echoed back as X-Trace-Id response header.
+        .layer(middleware::from_fn(trace_id::trace_id_middleware))
         // Global body limit for all other routes: 64 KB
         .layer(DefaultBodyLimit::max(64 * 1024))
         .with_state(state);

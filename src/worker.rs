@@ -1,14 +1,18 @@
 use crate::alerts::{fire_alerts, AlertContext};
+use crate::queue::{dead_letter, pop_job, EventJob};
 use deadpool_redis::Pool as RedisPool;
 use sqlx::PgPool;
-use std::sync::Arc;
-
-use crate::queue::{pop_job, EventJob};
+use std::sync::{atomic::{AtomicU64, Ordering}, Arc};
 use tokio::sync::Semaphore;
 
 const MAX_CONCURRENT_JOBS: usize = 64;
 
-pub async fn run(redis_pool: RedisPool, pg_pool: PgPool) {
+pub async fn run(
+    redis_pool:     RedisPool,
+    pg_pool:        PgPool,
+    jobs_processed: Arc<AtomicU64>,
+    jobs_failed:    Arc<AtomicU64>,
+) {
     tracing::info!("⚙️  Worker started — listening on queue");
 
     let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_JOBS));
@@ -16,14 +20,20 @@ pub async fn run(redis_pool: RedisPool, pg_pool: PgPool) {
     loop {
         match pop_job(&redis_pool).await {
             Some(job) => {
-                let pool      = pg_pool.clone();
-                let redis     = redis_pool.clone();
-                let permit    = semaphore.clone().acquire_owned().await
+                let pool       = pg_pool.clone();
+                let redis      = redis_pool.clone();
+                let permit     = semaphore.clone().acquire_owned().await
                     .expect("semaphore closed");
+                let processed  = jobs_processed.clone();
+                let failed     = jobs_failed.clone();
                 tokio::spawn(async move {
                     let _permit = permit;
-                    if let Err(e) = process(job, &pool, &redis).await {
+                    if let Err(e) = process(job.clone(), &pool, &redis).await {
                         tracing::error!("Worker failed to process job: {}", e);
+                        failed.fetch_add(1, Ordering::Relaxed);
+                        dead_letter(&redis, job, e.to_string()).await;
+                    } else {
+                        processed.fetch_add(1, Ordering::Relaxed);
                     }
                 });
             }
@@ -209,12 +219,20 @@ async fn process(job: EventJob, pool: &PgPool, redis_pool: &RedisPool) -> Result
     })
     .to_string();
 
-    if let Ok(mut conn) = redis_pool.get().await {
-        let _: Result<(), _> = deadpool_redis::redis::cmd("PUBLISH")
-            .arg("devpulse:events")
-            .arg(&broadcast_msg)
-            .query_async(&mut *conn)
-            .await;
+    match redis_pool.get().await {
+        Ok(mut conn) => {
+            if let Err(e) = deadpool_redis::redis::cmd("PUBLISH")
+                .arg("devpulse:events")
+                .arg(&broadcast_msg)
+                .query_async::<()>(&mut *conn)
+                .await
+            {
+                tracing::warn!("Failed to publish event to Redis pub/sub (WebSocket clients may miss update): {}", e);
+            }
+        }
+        Err(e) => {
+            tracing::warn!("Failed to get Redis connection for pub/sub publish: {}", e);
+        }
     }
 
     tracing::info!("✅ Event processed → issue: {}", issue.id);

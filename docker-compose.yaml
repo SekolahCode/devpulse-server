@@ -50,7 +50,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    # image: sekolahcode/devpulse-server:latest
+    # To use the pre-built image instead of building locally, replace the
+    # build: block above with one of:
+    #   image: sekolahcode/devpulse-server:1        ← latest 1.x (recommended)
+    #   image: sekolahcode/devpulse-server:1.0.0    ← pinned patch
+    #   image: sekolahcode/devpulse-server:latest   ← always latest (any major)
     restart: unless-stopped
     ports:
       - "${SERVER_PORT:-8000}:8000"

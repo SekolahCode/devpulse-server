@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IngestPayload {
     pub platform:    Option<String>,
     pub level:       Option<String>,       // "error" | "warning" | "info"
@@ -21,7 +21,7 @@ pub struct IngestPayload {
     pub extra:       HashMap<String, serde_json::Value>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExceptionInfo {
     pub r#type:     Option<String>,
     pub message:    String,
@@ -29,7 +29,7 @@ pub struct ExceptionInfo {
     pub stacktrace: Option<Vec<StackFrame>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StackFrame {
     pub file:     Option<String>,
     pub line:     Option<u32>,
@@ -40,7 +40,7 @@ pub struct StackFrame {
     pub context:  Option<serde_json::Value>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Breadcrumb {
     pub timestamp: Option<String>,
     pub category:  Option<String>,   // "navigation", "http", "ui.click", "console", …

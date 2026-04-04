@@ -1,7 +1,8 @@
 /// GET /metrics — Prometheus text-format endpoint.
 /// Exposes key operational counters without requiring an external crate.
 use axum::{extract::State, http::header, response::Response, body::Body};
-use crate::AppState;
+use std::sync::atomic::Ordering;
+use crate::{queue::DEAD_LETTER_KEY, AppState};
 
 pub async fn metrics(State(state): State<AppState>) -> Response<Body> {
     let mut lines: Vec<String> = Vec::new();
@@ -46,7 +47,7 @@ pub async fn metrics(State(state): State<AppState>) -> Response<Body> {
         lines.push(format!("devpulse_projects_total {}", row.total.unwrap_or(0)));
     }
 
-    // ── Redis queue depth ────────────────────────────────────────────────────
+    // ── Redis queue depth + dead-letter depth ────────────────────────────────
     if let Ok(mut conn) = state.redis_pool.get().await {
         if let Ok(depth) = deadpool_redis::redis::cmd("LLEN")
             .arg("devpulse:events")
@@ -57,7 +58,27 @@ pub async fn metrics(State(state): State<AppState>) -> Response<Body> {
             lines.push("# TYPE devpulse_queue_depth gauge".into());
             lines.push(format!("devpulse_queue_depth {}", depth));
         }
+
+        if let Ok(dlq_depth) = deadpool_redis::redis::cmd("LLEN")
+            .arg(DEAD_LETTER_KEY)
+            .query_async::<i64>(&mut *conn)
+            .await
+        {
+            lines.push("# HELP devpulse_dead_letter_depth Jobs in the dead-letter queue (failed processing)".into());
+            lines.push("# TYPE devpulse_dead_letter_depth gauge".into());
+            lines.push(format!("devpulse_dead_letter_depth {}", dlq_depth));
+        }
     }
+
+    // ── Worker job counters (since last restart) ─────────────────────────────
+    let processed = state.jobs_processed.load(Ordering::Relaxed);
+    let failed    = state.jobs_failed.load(Ordering::Relaxed);
+    lines.push("# HELP devpulse_jobs_processed_total Cumulative successfully processed worker jobs".into());
+    lines.push("# TYPE devpulse_jobs_processed_total counter".into());
+    lines.push(format!("devpulse_jobs_processed_total {}", processed));
+    lines.push("# HELP devpulse_jobs_failed_total Cumulative worker jobs that failed and were dead-lettered".into());
+    lines.push("# TYPE devpulse_jobs_failed_total counter".into());
+    lines.push(format!("devpulse_jobs_failed_total {}", failed));
 
     // ── DB pool stats ────────────────────────────────────────────────────────
     let pool_size = state.pg_pool.size();

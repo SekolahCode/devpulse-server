@@ -72,19 +72,41 @@ The Dockerfile compiles the Rust binary and embeds the pre-built Vue dashboard i
 
 ## API Routes
 
-| Method | Path                          | Auth   | Description                    |
-|--------|-------------------------------|--------|--------------------------------|
-| GET    | `/health`                     | None   | Health check                   |
-| POST   | `/api/ingest/{api_key}`       | None   | Ingest an error event          |
-| GET    | `/ws`                         | None   | WebSocket (live event stream)  |
-| GET    | `/api/projects`               | Token  | List projects                  |
-| POST   | `/api/projects`               | Token  | Create a project               |
-| POST   | `/api/projects/{id}/alerts`   | Token  | Create an alert rule           |
-| GET    | `/api/issues`                 | Token  | List issues                    |
-| GET    | `/api/issues/{id}`            | Token  | Get a single issue             |
-| PATCH  | `/api/issues/{id}`            | Token  | Update an issue                |
-| DELETE | `/api/issues/{id}`            | Token  | Delete an issue                |
-| GET    | `/api/stats`                  | Token  | Aggregated statistics          |
+| Method | Path                               | Auth   | Description                    |
+|--------|------------------------------------|--------|--------------------------------|
+| GET    | `/health`                          | None   | Health check                   |
+| GET    | `/metrics`                         | None   | Prometheus-format metrics      |
+| POST   | `/api/ingest`                      | API Key| Ingest an error event          |
+| GET    | `/ws`                              | None   | WebSocket (live event stream)  |
+| GET    | `/api/projects`                    | Token  | List projects                  |
+| POST   | `/api/projects`                    | Token  | Create a project               |
+| POST   | `/api/projects/{id}/rotate-key`    | Token  | Rotate a project's API key     |
+| POST   | `/api/projects/{id}/alerts`        | Token  | Create an alert rule           |
+| GET    | `/api/issues`                      | Token  | List issues                    |
+| GET    | `/api/issues/{id}`                 | Token  | Get a single issue             |
+| PATCH  | `/api/issues/{id}`                 | Token  | Update an issue                |
+| DELETE | `/api/issues/{id}`                 | Token  | Delete an issue                |
+| GET    | `/api/stats`                       | Token  | Aggregated statistics          |
+
+### Ingest authentication
+
+The ingest endpoint reads the project API key from the **`X-API-Key` request header**. The key must not be placed in the URL.
+
+```http
+POST /api/ingest HTTP/1.1
+Host: devpulse.example.com
+Content-Type: application/json
+X-API-Key: <your-project-api-key>
+
+{ "exception": { ... } }
+```
+
+> **Migration note (breaking change from pre-0.4):** The endpoint was previously
+> `/api/ingest/{api_key}` with the key in the URL path. All official SDKs have
+> been updated. If you use the API directly, move the key to the `X-API-Key` header
+> and update your endpoint URL to `/api/ingest`.
+
+Every response includes an **`X-Trace-Id`** header (UUID) for log correlation. You can propagate your own trace ID by sending it as an `X-Trace-Id` request header.
 
 Protected routes require an `Authorization: Bearer <ADMIN_TOKEN>` header.
 
