@@ -5,6 +5,38 @@ use sqlx::PgPool;
 use std::sync::{atomic::{AtomicU64, Ordering}, Arc};
 use tokio::sync::Semaphore;
 
+/// Publish a message to the Redis pub/sub channel, retrying once with a fresh
+/// connection on failure.  WebSocket subscribers will miss an update only if
+/// both attempts fail (e.g. Redis is completely unavailable).
+async fn publish_with_retry(redis_pool: &RedisPool, message: &str) {
+    for attempt in 1..=2u8 {
+        match redis_pool.get().await {
+            Ok(mut conn) => {
+                match deadpool_redis::redis::cmd("PUBLISH")
+                    .arg("devpulse:events")
+                    .arg(message)
+                    .query_async::<()>(&mut *conn)
+                    .await
+                {
+                    Ok(_) => return,
+                    Err(e) if attempt < 2 => {
+                        tracing::warn!("Redis publish attempt {} failed, retrying: {}", attempt, e);
+                    }
+                    Err(e) => {
+                        tracing::warn!("Redis publish failed after 2 attempts (WebSocket clients may miss update): {}", e);
+                    }
+                }
+            }
+            Err(e) if attempt < 2 => {
+                tracing::warn!("Redis pool attempt {} failed, retrying: {}", attempt, e);
+            }
+            Err(e) => {
+                tracing::warn!("Redis pool exhausted after 2 attempts (WebSocket clients may miss update): {}", e);
+            }
+        }
+    }
+}
+
 const MAX_CONCURRENT_JOBS: usize = 64;
 
 pub async fn run(
@@ -143,15 +175,16 @@ async fn process(job: EventJob, pool: &PgPool, redis_pool: &RedisPool) -> Result
         .map_err(|e| sqlx::Error::Protocol(e.to_string()))?;
 
     sqlx::query!(
-        "INSERT INTO events (issue_id, project_id, payload, context, environment, release, breadcrumbs)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        "INSERT INTO events (issue_id, project_id, payload, context, environment, release, breadcrumbs, sdk_version)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
         issue.id,
         job.project_id,
         payload_json,
         job.payload.context,
         environment,
         release as Option<String>,
-        breadcrumbs_json
+        breadcrumbs_json,
+        job.payload.sdk_version as Option<String>,
     )
     .execute(&mut *tx)
     .await?;
@@ -219,21 +252,7 @@ async fn process(job: EventJob, pool: &PgPool, redis_pool: &RedisPool) -> Result
     })
     .to_string();
 
-    match redis_pool.get().await {
-        Ok(mut conn) => {
-            if let Err(e) = deadpool_redis::redis::cmd("PUBLISH")
-                .arg("devpulse:events")
-                .arg(&broadcast_msg)
-                .query_async::<()>(&mut *conn)
-                .await
-            {
-                tracing::warn!("Failed to publish event to Redis pub/sub (WebSocket clients may miss update): {}", e);
-            }
-        }
-        Err(e) => {
-            tracing::warn!("Failed to get Redis connection for pub/sub publish: {}", e);
-        }
-    }
+    publish_with_retry(redis_pool, &broadcast_msg).await;
 
     tracing::info!("✅ Event processed → issue: {}", issue.id);
     Ok(())

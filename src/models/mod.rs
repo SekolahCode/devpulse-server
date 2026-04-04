@@ -14,6 +14,10 @@ pub struct IngestPayload {
     pub request:     Option<serde_json::Value>,
     pub breadcrumbs: Option<Vec<Breadcrumb>>,
     pub timestamp:   Option<String>,
+    /// SDK name + version string, e.g. "devpulse-browser/1.0.0".
+    /// Sent automatically by all official SDKs; used to identify users on old
+    /// SDK versions with known bugs.
+    pub sdk_version: Option<String>,
     /// Captures all SDK-specific extra fields (e.g. Laravel's command, exit_code,
     /// laravel version, php version) so they are preserved in the stored payload
     /// and available in the dashboard without being silently dropped.
