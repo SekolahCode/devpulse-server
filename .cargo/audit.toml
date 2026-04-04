@@ -1,0 +1,12 @@
+[advisories]
+# RUSTSEC-2023-0071 — Marvin Attack timing side-channel in the `rsa` crate.
+#
+# `rsa` is pulled in by `sqlx-mysql` → `sqlx-macros-core`, which unconditionally
+# includes all database back-ends for SQL parsing regardless of feature flags.
+# This server uses PostgreSQL only; the MySQL auth path (and therefore the RSA
+# key operations) is never exercised at runtime.
+#
+# There is no fixed version of `rsa` upstream (as of 2026-04-05), and removing
+# `sqlx-mysql` from the dependency tree is not possible without forking sqlx.
+# Track: https://github.com/launchbadge/sqlx/issues/3142
+ignore = ["RUSTSEC-2023-0071"]

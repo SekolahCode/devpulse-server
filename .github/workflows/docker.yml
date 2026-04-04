@@ -7,8 +7,16 @@ on:
   workflow_dispatch:
 
 jobs:
+  audit:
+    name: Security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/audit@v1
+
   build:
     name: Build & Push to Docker Hub
+    needs: audit
     runs-on: ubuntu-latest
 
     steps:
