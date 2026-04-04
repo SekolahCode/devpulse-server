@@ -16,6 +16,8 @@ serde_json        = "1"
 
 # Database
 sqlx = { version = "0.8", default-features = false, features = [
+    "macros",
+    "json",
     "postgres",
     "runtime-tokio",
     "migrate",
