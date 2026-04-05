@@ -53,9 +53,10 @@ RUN cargo build --release
 # ── Stage 4: Minimal runtime image ───────────────────────────────────────────
 FROM debian:bookworm-slim AS runtime
 
-# Install only what's needed: CA certs (for HTTPS alerts) + curl (healthcheck)
+# Install only what's needed: CA certs (for HTTPS alerts) + wget (healthcheck)
+# wget is already present in debian:bookworm-slim; curl is not.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && apt-get install -y --no-install-recommends ca-certificates wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root user for security
@@ -72,6 +73,6 @@ USER devpulse
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -fsS http://localhost:8000/health || exit 1
+    CMD wget -qO- http://localhost:8000/health || exit 1
 
 ENTRYPOINT ["/app/devpulse-server"]

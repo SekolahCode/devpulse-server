@@ -96,6 +96,27 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
+    // ── Admin token guard ─────────────────────────────────────────────────────
+    // In production (RUST_LOG != debug/trace and ADMIN_TOKEN not set) refuse to
+    // start — an open dashboard is a data breach waiting to happen.
+    let admin_token = std::env::var("ADMIN_TOKEN").unwrap_or_default();
+    if admin_token.is_empty() {
+        let rust_log = std::env::var("RUST_LOG").unwrap_or_default();
+        let is_dev   = rust_log.contains("debug") || rust_log.contains("trace");
+        if is_dev {
+            tracing::warn!(
+                "ADMIN_TOKEN is not set — all protected routes are accessible without authentication. \
+                 Set ADMIN_TOKEN before deploying to production."
+            );
+        } else {
+            tracing::error!(
+                "ADMIN_TOKEN is not set. Refusing to start in production mode. \
+                 Set ADMIN_TOKEN=<secret> in your environment, or set RUST_LOG=debug to run without auth in development."
+            );
+            std::process::exit(1);
+        }
+    }
+
     // ── PostgreSQL ────────────────────────────────────────────────────────────
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let pg_pool = db::create_pool(&database_url).await;
