@@ -15,25 +15,31 @@ pub struct WsQuery {
     token: Option<String>,
 }
 
-/// WebSocket handler — requires the same ADMIN_TOKEN as the REST API.
-/// Clients pass it as a query param: /ws?token=<ADMIN_TOKEN>
+/// WebSocket handler — validates ADMIN_TOKEN via query param.
+/// - In production (ADMIN_TOKEN set): requires ?token=<ADMIN_TOKEN>
+/// - In development (ADMIN_TOKEN empty): allows unauthenticated access
 pub async fn ws_handler(
     ws:            WebSocketUpgrade,
     Query(params): Query<WsQuery>,
-    State(state):  State<AppState>,
+    State(_state): State<AppState>,
 ) -> Response {
-    // Validate token
-    let expected = match std::env::var("ADMIN_TOKEN").ok().filter(|t| !t.is_empty()) {
-        Some(t) => t,
-        None => return (StatusCode::UNAUTHORIZED, "Server has no ADMIN_TOKEN configured").into_response(),
-    };
+    let expected = std::env::var("ADMIN_TOKEN").ok().filter(|t| !t.is_empty());
 
-    let provided = params.token.unwrap_or_default();
-    if provided != expected {
-        return (StatusCode::UNAUTHORIZED, "Invalid or missing token").into_response();
+    match &expected {
+        Some(admin_token) => {
+            let provided = params.token.as_deref().unwrap_or("");
+            if provided != admin_token.as_str() {
+                tracing::warn!("WS: rejected connection — invalid token");
+                return (StatusCode::UNAUTHORIZED, "Invalid or missing token").into_response();
+            }
+            tracing::debug!("WS: authenticated connection accepted");
+        }
+        None => {
+            tracing::warn!("WS: accepting unauthenticated connection (ADMIN_TOKEN not set — development mode)");
+        }
     }
 
-    let redis_url = state.redis_url.clone();
+    let redis_url = _state.redis_url.clone();
     ws.on_upgrade(move |socket| handle_socket(socket, redis_url))
 }
 
