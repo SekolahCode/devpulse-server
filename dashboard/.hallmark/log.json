@@ -1,0 +1,57 @@
+[
+  {
+    "date": "2026-08-21",
+    "macrostructure": "Ledger Row + Briefing + Dossier Timeline + exhibit-framed technical readout",
+    "theme": "custom — formal/exclusive white, oxblood/wine anchor (was violet 281°)",
+    "enrichment": "none",
+    "scope": "app",
+    "theme_axes": "light / classical-serif (Fraunces) / warm-other (oxblood ~15°)",
+    "brief": "DevPulse full-app redesign — user wanted a more exclusive, formal, market-ready look. Retired the violet instrument-panel system for an oxblood/wine anchor, swapped Space Grotesk for Fraunces, dropped rounded-full CTAs for rounded-md, and replaced every boxed/shadowed panel (console list, instrument-panel stat grid, deployment cards) with hairline-divided ledger/briefing/dossier/exhibit layouts across all 5 views + shell + Login (Login rebuilt from a standalone hardcoded dark screen for the first time)."
+  },
+  {
+    "date": "2026-07-04",
+    "macrostructure": "deployment timeline + dense technical readout",
+    "theme": "DevPulse locked system (design.md) — light workspace",
+    "enrichment": "none",
+    "scope": "app",
+    "brief": "DevPulse Releases + IssueDetails — last two legacy dark pages migrated to the light system; fixed a real mobile text-wrap bug on the AI Analyse button. App-wide light migration now complete, no dark pages remain."
+  },
+  {
+    "date": "2026-07-04",
+    "macrostructure": "console row list",
+    "theme": "DevPulse locked system (design.md) — light workspace",
+    "enrichment": "none",
+    "scope": "app",
+    "brief": "DevPulse Issues list — migrated from legacy dark to the light system; fixed a real mobile overflow bug in the 6-column table grid"
+  },
+  {
+    "date": "2026-07-04",
+    "macrostructure": "Stat-Led (app-adapted)",
+    "theme": "DevPulse locked system (design.md) — light workspace",
+    "enrichment": "none",
+    "scope": "app",
+    "brief": "DevPulse Analytics dashboard — migrated from dark Cobalt-technical variant to the light system"
+  },
+  {
+    "date": "2026-07-04",
+    "macrostructure": "console rail + row list",
+    "theme": "DevPulse locked system (design.md) — light workspace, light rail",
+    "enrichment": "none",
+    "scope": "app",
+    "brief": "DevPulse shell + Projects main page — sidebar shell, compact rows with live unresolved counts; audience team + non-devs; use case manage projects"
+  },
+  {
+    "date": "2026-07-04",
+    "macrostructure": "app-page (CRUD list)",
+    "theme": "existing violet brand, flipped light",
+    "enrichment": "none",
+    "brief": "DevPulse Projects list — user disliked black theme, wanted clean/bright"
+  },
+  {
+    "date": "2026-07-04",
+    "macrostructure": "Stat-Led (app-adapted)",
+    "theme": "existing violet brand, dark (Cobalt-technical voice)",
+    "enrichment": "none",
+    "brief": "DevPulse Analytics dashboard — instrument-panel technical mood"
+  }
+]

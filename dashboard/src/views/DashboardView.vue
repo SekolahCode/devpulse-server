@@ -1,171 +1,165 @@
 <template>
-  <div class="max-w-6xl mx-auto px-6 py-8 space-y-8">
+  <div class="dashboard-root flex-1 w-full">
+    <div class="max-w-6xl mx-auto px-6 py-10 space-y-10">
 
-    <!-- Page header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-semibold text-white tracking-tight">Analytics</h1>
-        <p class="text-sm text-muted-foreground mt-0.5">Last 14 days across all projects</p>
+      <!-- Page header -->
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 class="dv-display text-2xl md:text-[28px] font-semibold text-[var(--dp-ink)] tracking-tight">Analytics</h1>
+          <p class="text-sm text-[var(--dp-ink-2)] mt-1">Last 14 days · all projects</p>
+        </div>
+
+        <!-- Time range selector using shadcn Select -->
+        <Select v-model="range">
+          <SelectTrigger class="w-36 rounded-md bg-[var(--dp-surface)] border-[var(--dp-rule)] text-[var(--dp-ink)] text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent class="bg-[var(--dp-surface)] border-[var(--dp-rule)] text-[var(--dp-ink)]">
+            <SelectItem value="14" class="focus:bg-[var(--dp-accent-soft)] focus:text-[var(--dp-accent)] [&_svg]:text-[var(--dp-ink-3)]">Last 14 days</SelectItem>
+            <SelectItem value="7" class="focus:bg-[var(--dp-accent-soft)] focus:text-[var(--dp-accent)] [&_svg]:text-[var(--dp-ink-3)]">Last 7 days</SelectItem>
+            <SelectItem value="30" class="focus:bg-[var(--dp-accent-soft)] focus:text-[var(--dp-accent)] [&_svg]:text-[var(--dp-ink-3)]">Last 30 days</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <!-- Time range selector using shadcn Select -->
-      <Select v-model="range">
-        <SelectTrigger class="w-36 bg-card border-border text-sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="14">Last 14 days</SelectItem>
-          <SelectItem value="7">Last 7 days</SelectItem>
-          <SelectItem value="30">Last 30 days</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-
-    <!-- Stat cards -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <template v-if="loading">
-        <Skeleton v-for="i in 4" :key="i" class="h-28 rounded-xl" />
-      </template>
-      <template v-else>
-        <Card class="px-6 py-5 gap-3">
-          <CardContent class="p-0">
-            <p class="text-xs text-muted-foreground uppercase tracking-wide font-medium">Unresolved</p>
-            <p class="text-3xl font-bold text-red-400 mt-1 tabular-nums">
-              {{ stats?.issues.unresolved ?? 0 }}
-            </p>
-            <p class="text-xs text-muted-foreground mt-1">open issues</p>
-          </CardContent>
-        </Card>
-
-        <Card class="px-6 py-5 gap-3">
-          <CardContent class="p-0">
-            <p class="text-xs text-muted-foreground uppercase tracking-wide font-medium">New 24 h</p>
-            <p class="text-3xl font-bold text-amber-400 mt-1 tabular-nums">
-              {{ stats?.issues.new_24h ?? 0 }}
-            </p>
-            <p class="text-xs text-muted-foreground mt-1">new issues today</p>
-          </CardContent>
-        </Card>
-
-        <Card class="px-6 py-5 gap-3">
-          <CardContent class="p-0">
-            <p class="text-xs text-muted-foreground uppercase tracking-wide font-medium">Regressions</p>
-            <p class="text-3xl font-bold text-orange-400 mt-1 tabular-nums">
-              {{ stats?.issues.regressions_24h ?? 0 }}
-            </p>
-            <p class="text-xs text-muted-foreground mt-1">in last 24 h</p>
-          </CardContent>
-        </Card>
-
-        <Card class="px-6 py-5 gap-3">
-          <CardContent class="p-0">
-            <p class="text-xs text-muted-foreground uppercase tracking-wide font-medium">Events 24 h</p>
-            <p class="text-3xl font-bold text-violet-400 mt-1 tabular-nums">
-              {{ (stats?.events_24h ?? 0).toLocaleString() }}
-            </p>
-            <p class="text-xs text-muted-foreground mt-1">events ingested</p>
-          </CardContent>
-        </Card>
-      </template>
-    </div>
-
-    <!-- Timeline charts row -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-      <!-- Events + Issues over time — Line chart (2/3 width) -->
-      <Card class="lg:col-span-2 px-6 py-5 gap-4">
-        <CardHeader class="p-0">
-          <CardTitle class="text-[15px] font-semibold text-foreground">Activity timeline</CardTitle>
-          <CardDescription>Events ingested and new issues opened per day</CardDescription>
-        </CardHeader>
-        <CardContent class="p-0">
-          <Skeleton v-if="loading" class="h-56 w-full rounded-lg" />
-          <div v-else class="h-56">
-            <Line :data="lineChartData" :options="lineChartOptions" />
-          </div>
-        </CardContent>
-      </Card>
-
-      <!-- Issues by level — Doughnut (1/3 width) -->
-      <Card class="px-6 py-5 gap-4">
-        <CardHeader class="p-0">
-          <CardTitle class="text-[15px] font-semibold text-foreground">Issues by level</CardTitle>
-          <CardDescription>Unresolved issues breakdown</CardDescription>
-        </CardHeader>
-        <CardContent class="p-0 flex flex-col items-center gap-4">
-          <Skeleton v-if="loading" class="h-40 w-40 rounded-full" />
-          <template v-else>
-            <div class="h-44 w-44">
-              <Doughnut :data="levelDoughnutData" :options="doughnutOptions" />
+      <!-- Briefing lead: lead metric + supporting stats, hairline-framed, no shadow -->
+      <Card class="rounded-md shadow-none px-0 py-0 gap-0 bg-[var(--dp-surface)] text-[var(--dp-ink)] border-[var(--dp-rule)]">
+        <template v-if="loading">
+          <div class="flex flex-col lg:flex-row">
+            <div class="flex-1 lg:max-w-[58%] p-6 lg:p-8 space-y-3">
+              <Skeleton class="h-3 w-20" />
+              <Skeleton class="h-16 w-48" />
+              <Skeleton class="h-3 w-64" />
             </div>
-            <div class="flex flex-col gap-1.5 w-full">
-              <div v-for="item in levelItems" :key="item.label"
-                class="flex items-center justify-between text-xs">
-                <div class="flex items-center gap-2">
-                  <span class="w-2.5 h-2.5 rounded-sm shrink-0" :style="{ background: item.color }" />
-                  <span class="text-muted-foreground capitalize">{{ item.label }}</span>
-                </div>
-                <span class="font-semibold text-foreground tabular-nums">{{ item.count }}</span>
+            <div class="flex-1 grid grid-cols-3 lg:grid-cols-1">
+              <Skeleton v-for="i in 3" :key="i" class="h-16 m-4 rounded-md" />
+            </div>
+          </div>
+        </template>
+
+        <template v-else>
+          <div class="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-[var(--dp-rule)]">
+
+            <!-- Lead metric: unresolved issues -->
+            <div class="flex-1 lg:max-w-[58%] p-6 lg:p-8 flex flex-col justify-center gap-2">
+              <p class="text-[11px] uppercase tracking-[0.14em] text-[var(--dp-ink-2)] font-medium">Unresolved</p>
+              <p class="dv-mono tabular-nums text-[var(--dp-danger)] leading-none font-medium"
+                style="font-size: clamp(3rem, 3.2vw + 1.75rem, 5.5rem)">
+                {{ heroDisplay }}
+              </p>
+              <p class="text-sm text-[var(--dp-ink-2)] max-w-sm">
+                open issues across every project you're tracking — investigate before they age.
+              </p>
+            </div>
+
+            <!-- Supporting stats -->
+            <div class="flex-1 grid grid-cols-3 lg:grid-cols-1 divide-x lg:divide-x-0 lg:divide-y divide-[var(--dp-rule)]">
+              <div
+                v-for="s in secondaryStats" :key="s.key"
+                class="p-5 lg:px-8 lg:py-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-1.5"
+              >
+                <span class="text-[11px] uppercase tracking-widest text-[var(--dp-ink-2)] font-medium">{{ s.label }}</span>
+                <span class="dv-mono tabular-nums text-xl lg:text-2xl font-medium" :class="s.color">{{ s.display }}</span>
               </div>
             </div>
-          </template>
-        </CardContent>
-      </Card>
-    </div>
-
-    <!-- Bottom row -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-      <!-- Top projects — Bar chart (2/3) -->
-      <Card class="lg:col-span-2 px-6 py-5 gap-4">
-        <CardHeader class="p-0">
-          <CardTitle class="text-[15px] font-semibold text-foreground">Top projects</CardTitle>
-          <CardDescription>Event volume by project over the last 7 days</CardDescription>
-        </CardHeader>
-        <CardContent class="p-0">
-          <Skeleton v-if="loading" class="h-48 w-full rounded-lg" />
-          <div v-else-if="!chartData?.top_projects?.length"
-            class="h-48 flex items-center justify-center text-sm text-muted-foreground">
-            No event data yet
           </div>
-          <div v-else class="h-48">
-            <Bar :data="barChartData" :options="barChartOptions" />
-          </div>
-        </CardContent>
+        </template>
       </Card>
 
-      <!-- Issues by status — Doughnut (1/3) -->
-      <Card class="px-6 py-5 gap-4">
-        <CardHeader class="p-0">
-          <CardTitle class="text-[15px] font-semibold text-foreground">Issue status</CardTitle>
-          <CardDescription>Distribution across all projects</CardDescription>
-        </CardHeader>
-        <CardContent class="p-0 flex flex-col items-center gap-4">
-          <Skeleton v-if="loading" class="h-40 w-40 rounded-full" />
-          <template v-else>
-            <div class="h-44 w-44">
-              <Doughnut :data="statusDoughnutData" :options="doughnutOptions" />
+      <!-- Charts — row 1: timeline (wide) + level breakdown (narrow) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+        <Card class="lg:col-span-8 rounded-md shadow-none px-6 py-5 gap-4 bg-[var(--dp-surface)] text-[var(--dp-ink)] border-[var(--dp-rule)]">
+          <CardHeader class="p-0">
+            <CardTitle class="dv-display text-[15px] font-semibold text-[var(--dp-ink)]">Activity timeline</CardTitle>
+            <CardDescription class="text-[var(--dp-ink-2)]">Events ingested and new issues opened per day</CardDescription>
+          </CardHeader>
+          <CardContent class="p-0">
+            <Skeleton v-if="loading" class="h-56 w-full rounded-md" />
+            <div v-else class="h-56">
+              <Line :data="lineChartData" :options="lineChartOptions" />
             </div>
-            <div class="flex flex-col gap-1.5 w-full">
-              <div v-for="item in statusItems" :key="item.label"
-                class="flex items-center justify-between text-xs">
-                <div class="flex items-center gap-2">
-                  <span class="w-2.5 h-2.5 rounded-sm shrink-0" :style="{ background: item.color }" />
-                  <span class="text-muted-foreground capitalize">{{ item.label }}</span>
-                </div>
-                <span class="font-semibold text-foreground tabular-nums">{{ item.count }}</span>
+          </CardContent>
+        </Card>
+
+        <Card class="lg:col-span-4 rounded-md shadow-none px-6 py-5 gap-4 bg-[var(--dp-surface)] text-[var(--dp-ink)] border-[var(--dp-rule)]">
+          <CardHeader class="p-0">
+            <CardTitle class="dv-display text-[15px] font-semibold text-[var(--dp-ink)]">Issues by level</CardTitle>
+            <CardDescription class="text-[var(--dp-ink-2)]">Unresolved issues breakdown</CardDescription>
+          </CardHeader>
+          <CardContent class="p-0 flex flex-col items-center gap-4">
+            <Skeleton v-if="loading" class="h-40 w-40 rounded-full" />
+            <template v-else>
+              <div class="h-44 w-44">
+                <Doughnut :data="levelDoughnutData" :options="doughnutOptions" />
               </div>
-            </div>
-          </template>
-        </CardContent>
-      </Card>
-    </div>
+              <div class="flex flex-col gap-1.5 w-full">
+                <div v-for="item in levelItems" :key="item.label"
+                  class="flex items-center justify-between text-xs">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-sm shrink-0" :style="{ background: item.color }" />
+                    <span class="text-[var(--dp-ink-2)] capitalize">{{ item.label }}</span>
+                  </div>
+                  <span class="dv-mono font-medium text-[var(--dp-ink)] tabular-nums">{{ item.count }}</span>
+                </div>
+              </div>
+            </template>
+          </CardContent>
+        </Card>
+      </div>
 
+      <!-- Charts — row 2: status breakdown (narrow, left this time) + top projects (wide) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+        <Card class="lg:col-span-4 rounded-md shadow-none px-6 py-5 gap-4 bg-[var(--dp-surface)] text-[var(--dp-ink)] border-[var(--dp-rule)]">
+          <CardHeader class="p-0">
+            <CardTitle class="dv-display text-[15px] font-semibold text-[var(--dp-ink)]">Issue status</CardTitle>
+            <CardDescription class="text-[var(--dp-ink-2)]">Distribution across all projects</CardDescription>
+          </CardHeader>
+          <CardContent class="p-0 flex flex-col items-center gap-4">
+            <Skeleton v-if="loading" class="h-40 w-40 rounded-full" />
+            <template v-else>
+              <div class="h-44 w-44">
+                <Doughnut :data="statusDoughnutData" :options="doughnutOptions" />
+              </div>
+              <div class="flex flex-col gap-1.5 w-full">
+                <div v-for="item in statusItems" :key="item.label"
+                  class="flex items-center justify-between text-xs">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-sm shrink-0" :style="{ background: item.color }" />
+                    <span class="text-[var(--dp-ink-2)] capitalize">{{ item.label }}</span>
+                  </div>
+                  <span class="dv-mono font-medium text-[var(--dp-ink)] tabular-nums">{{ item.count }}</span>
+                </div>
+              </div>
+            </template>
+          </CardContent>
+        </Card>
+
+        <Card class="lg:col-span-8 rounded-md shadow-none px-6 py-5 gap-4 bg-[var(--dp-surface)] text-[var(--dp-ink)] border-[var(--dp-rule)]">
+          <CardHeader class="p-0">
+            <CardTitle class="dv-display text-[15px] font-semibold text-[var(--dp-ink)]">Top projects</CardTitle>
+            <CardDescription class="text-[var(--dp-ink-2)]">Event volume by project over the last 7 days</CardDescription>
+          </CardHeader>
+          <CardContent class="p-0">
+            <Skeleton v-if="loading" class="h-48 w-full rounded-md" />
+            <div v-else-if="!chartData?.top_projects?.length"
+              class="h-48 flex items-center justify-center text-sm text-[var(--dp-ink-2)]">
+              No event data yet
+            </div>
+            <div v-else class="h-48">
+              <Bar :data="barChartData" :options="barChartOptions" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import axios from 'axios'
 import {
   Chart as ChartJS,
@@ -194,6 +188,41 @@ const stats     = ref(null)
 const chartData = ref(null)
 const range     = ref('14')
 
+// ── Number-reveal count-up (hero + supporting stats) ────────────────────────
+const prefersReducedMotion = typeof window !== 'undefined'
+  && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+const counts = reactive({ unresolved: 0, new24h: 0, regressions: 0, events: 0 })
+
+function animateNumber(setter, target, duration = 700) {
+  if (prefersReducedMotion || !target) { setter(target || 0); return }
+  const start = performance.now()
+  function frame(now) {
+    const t = Math.min(1, (now - start) / duration)
+    const eased = 1 - Math.pow(1 - t, 3) // matches --ease-out
+    setter(target * eased)
+    if (t < 1) requestAnimationFrame(frame)
+    else setter(target)
+  }
+  requestAnimationFrame(frame)
+}
+
+function triggerCountUp() {
+  if (!stats.value) return
+  animateNumber(v => (counts.unresolved  = v), stats.value.issues?.unresolved ?? 0, 900)
+  animateNumber(v => (counts.new24h      = v), stats.value.issues?.new_24h ?? 0, 700)
+  animateNumber(v => (counts.regressions = v), stats.value.issues?.regressions_24h ?? 0, 700)
+  animateNumber(v => (counts.events      = v), stats.value.events_24h ?? 0, 700)
+}
+
+const heroDisplay = computed(() => Math.round(counts.unresolved).toLocaleString())
+
+const secondaryStats = computed(() => [
+  { key: 'new24h',      label: 'New 24h',      display: Math.round(counts.new24h).toLocaleString(),      color: 'text-amber-600'  },
+  { key: 'regressions', label: 'Regressions',  display: Math.round(counts.regressions).toLocaleString(), color: 'text-orange-600' },
+  { key: 'events',      label: 'Events 24h',   display: Math.round(counts.events).toLocaleString(),      color: 'text-[var(--dp-accent)]' },
+])
+
 // ── Data fetching ────────────────────────────────────────────────────────────
 onMounted(async () => {
   const [statsRes, chartRes] = await Promise.all([
@@ -203,28 +232,31 @@ onMounted(async () => {
   stats.value     = statsRes?.data ?? null
   chartData.value = chartRes?.data ?? null
   loading.value   = false
+  triggerCountUp()
 })
 
-// ── Shared Chart.js theme ────────────────────────────────────────────────────
-const VIOLET  = 'oklch(0.546 0.245 281)'
-const RED     = 'oklch(0.640 0.210 25)'
-const AMBER   = 'oklch(0.728 0.160 68)'
-const EMERALD = 'oklch(0.696 0.170 162)'
-const BLUE    = 'oklch(0.627 0.220 264)'
-const GRAY    = 'oklch(0.512 0.010 278)'
+// ── Shared Chart.js theme (light canvas) ─────────────────────────────────────
+const FONT_MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, monospace"
 
-// Chart.js doesn't understand oklch — use hex equivalents
 const C = {
-  violet:  '#7c3aed',
-  violetA: 'rgba(124,58,237,0.15)',
-  red:     '#f87171',
-  redA:    'rgba(248,113,113,0.15)',
-  amber:   '#fbbf24',
-  emerald: '#34d399',
-  blue:    '#60a5fa',
-  gray:    '#6b7280',
-  border:  'rgba(255,255,255,0.06)',
-  text:    '#9ca3af',
+  // Brand series — oxblood/wine, mirrors --dp-accent (Chart.js can't read oklch())
+  violet:  '#6b2b35',
+  violetA: 'rgba(107,43,53,0.14)',
+  red:     '#dc2626',
+  redA:    'rgba(220,38,38,0.12)',
+  amber:   '#d97706',
+  emerald: '#059669',
+  blue:    '#2563eb',
+  gray:    '#9ca3af',
+  // Grid/ticks sit directly on the light card surface now, warm-neutral tuned
+  gridLine: 'rgba(40, 32, 26, 0.08)',
+  tickText: '#7a7168',
+  // Tooltip stays a dark floating chip — pops regardless of page theme,
+  // mirrors --dp-elevated-* (see design.md)
+  tooltipBg:     '#221c19',
+  tooltipBorder: 'rgba(255,255,255,0.08)',
+  tooltipTitle:  '#f5f0ec',
+  tooltipBody:   '#c9beb4',
 }
 
 const baseChartOptions = {
@@ -233,13 +265,15 @@ const baseChartOptions = {
   plugins: {
     legend: { display: false },
     tooltip: {
-      backgroundColor: '#1a1a28',
-      borderColor:     C.border,
+      backgroundColor: C.tooltipBg,
+      borderColor:     C.tooltipBorder,
       borderWidth:     1,
-      titleColor:      '#e8e8f0',
-      bodyColor:       C.text,
+      titleColor:      C.tooltipTitle,
+      titleFont:       { family: FONT_MONO, size: 11 },
+      bodyColor:       C.tooltipBody,
+      bodyFont:        { family: FONT_MONO, size: 11 },
       padding:         10,
-      cornerRadius:    8,
+      cornerRadius:    6,
     },
   },
 }
@@ -292,24 +326,24 @@ const lineChartOptions = {
       position: 'top',
       align:    'end',
       labels: {
-        color:       C.text,
+        color:       C.tickText,
         boxWidth:    10,
         boxHeight:   10,
         borderRadius: 3,
         usePointStyle: false,
-        font: { size: 11 },
+        font: { family: FONT_MONO, size: 11 },
         padding: 16,
       },
     },
   },
   scales: {
     x: {
-      grid:  { color: C.border },
-      ticks: { color: C.text, font: { size: 11 }, maxRotation: 0 },
+      grid:  { color: C.gridLine },
+      ticks: { color: C.tickText, font: { family: FONT_MONO, size: 11 }, maxRotation: 0 },
     },
     y: {
-      grid:  { color: C.border },
-      ticks: { color: C.text, font: { size: 11 }, precision: 0 },
+      grid:  { color: C.gridLine },
+      ticks: { color: C.tickText, font: { family: FONT_MONO, size: 11 }, precision: 0 },
       beginAtZero: true,
     },
   },
@@ -346,7 +380,7 @@ const barChartData = computed(() => {
       label:           'Events (7d)',
       data:            projects.map(p => p.count),
       backgroundColor: C.violet,
-      hoverBackgroundColor: '#8b5cf6',
+      hoverBackgroundColor: '#551f27',
       borderRadius:    6,
       borderSkipped:   false,
     }],
@@ -358,11 +392,11 @@ const barChartOptions = {
   scales: {
     x: {
       grid:  { display: false },
-      ticks: { color: C.text, font: { size: 11 } },
+      ticks: { color: C.tickText, font: { family: FONT_MONO, size: 11 } },
     },
     y: {
-      grid:  { color: C.border },
-      ticks: { color: C.text, font: { size: 11 }, precision: 0 },
+      grid:  { color: C.gridLine },
+      ticks: { color: C.tickText, font: { family: FONT_MONO, size: 11 }, precision: 0 },
       beginAtZero: true,
     },
   },
@@ -412,3 +446,27 @@ function fmtDay(iso) {
   return d.toLocaleDateString('en', { month: 'short', day: 'numeric' })
 }
 </script>
+
+<style scoped>
+/* Hallmark · macrostructure: Briefing (was Stat-Led instrument panel) · genre: modern-minimal (formal/exclusive)
+ * theme: DevPulse locked system (design.md) — formal white workspace, oxblood accent
+ * display: Fraunces · body: Geist · outlier(mono): JetBrains Mono
+ * motion: number-reveal count-up only · nav/footer: owned by App.vue (out of scope)
+ * hairline-framed exhibits, no card shadow — see design.md § Macrostructure family
+ */
+.dashboard-root {
+  background: var(--dp-paper);
+  font-family: var(--dp-font-body);
+  color: var(--dp-ink);
+}
+
+.dv-display {
+  font-family: var(--dp-font-display);
+  letter-spacing: -0.01em;
+}
+
+.dv-mono {
+  font-family: var(--dp-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+</style>

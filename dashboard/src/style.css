@@ -1,3 +1,4 @@
+@import "./tokens.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -7,12 +8,16 @@
   box-sizing: border-box;
 }
 
+html, body {
+  overflow-x: clip;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #0b0b12;
-  color: #e8e8f0;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--dp-paper);
+  color: var(--dp-ink);
+  font-family: var(--dp-font-body), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-size: 14px;
@@ -117,7 +122,7 @@ input, select, textarea {
   --card-foreground:       oklch(0.932 0.010 278);
   --popover:               oklch(0.115 0.023 278);   /* #1a1a28 */
   --popover-foreground:    oklch(0.932 0.010 278);
-  --primary:               oklch(0.546 0.245 281);   /* violet-600 */
+  --primary:               oklch(0.33 0.135 15);      /* oxblood — mirrors --dp-accent */
   --primary-foreground:    oklch(0.985 0 0);
   --secondary:             oklch(0.115 0.020 278);
   --secondary-foreground:  oklch(0.932 0.010 278);
@@ -128,9 +133,9 @@ input, select, textarea {
   --destructive:           oklch(0.704 0.191 22.2);  /* red-400 */
   --border:                oklch(1 0 0 / 6%);        /* white/6 */
   --input:                 oklch(1 0 0 / 8%);        /* white/8 */
-  --ring:                  oklch(0.546 0.245 281);
+  --ring:                  oklch(0.33 0.135 15);
   /* Chart palette */
-  --chart-1:               oklch(0.546 0.245 281);   /* violet  */
+  --chart-1:               oklch(0.33 0.135 15);      /* oxblood */
   --chart-2:               oklch(0.640 0.210 25);    /* red     */
   --chart-3:               oklch(0.728 0.160 68);    /* amber   */
   --chart-4:               oklch(0.696 0.170 162);   /* emerald */
@@ -138,12 +143,12 @@ input, select, textarea {
   /* Sidebar (unused in this app but required by shadcn) */
   --sidebar:               oklch(0.095 0.019 278);
   --sidebar-foreground:    oklch(0.932 0.010 278);
-  --sidebar-primary:       oklch(0.546 0.245 281);
+  --sidebar-primary:       oklch(0.33 0.135 15);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent:        oklch(0.140 0.025 278);
   --sidebar-accent-foreground: oklch(0.932 0.010 278);
   --sidebar-border:        oklch(1 0 0 / 6%);
-  --sidebar-ring:          oklch(0.546 0.245 281);
+  --sidebar-ring:          oklch(0.33 0.135 15);
 }
 
 @layer base {
