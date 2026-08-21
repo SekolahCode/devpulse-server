@@ -6,7 +6,7 @@ import path from "path";
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
   resolve: {
-    alias: { '@': path.resolve(__dirname, './src') },
+    alias: { '@': path.resolve(import.meta.dirname, './src') },
   },
   build: {
     outDir: "../web/dist", // output into Rust's web/ folder
