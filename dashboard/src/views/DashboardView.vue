@@ -62,7 +62,9 @@
               :to="`/projects/${p.id}/issues`"
               class="flex items-center gap-3 px-5 py-3.5 hover:bg-[var(--dp-surface-2)]/40 transition-colors"
             >
-              <img :src="platformIcon(p.platform)" :alt="p.platform" class="w-8 h-8 rounded-full shrink-0" />
+              <div :class="platformColor(p.platform)" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0">
+                <img :src="platformIcon(p.platform)" :alt="p.platform" class="w-4.5 h-4.5" />
+              </div>
               <div class="min-w-0 flex-1">
                 <p class="text-sm font-medium text-[var(--dp-ink)] truncate">{{ p.name }}</p>
                 <p class="text-xs text-[var(--dp-ink-3)] capitalize">{{ p.platform }}</p>
@@ -115,7 +117,7 @@ import axios from 'axios'
 import { AlertCircle, Sparkles, RotateCcw, Activity, ArrowRight } from 'lucide-vue-next'
 import { useProjectStore } from '../stores/project'
 import { useIssuesStore } from '../stores/issues'
-import { platformIcon } from '../composables/useColors'
+import { platformIcon, platformColor } from '../composables/useColors'
 
 const projectStore = useProjectStore()
 const issuesStore  = useIssuesStore()
