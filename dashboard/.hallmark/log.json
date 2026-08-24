@@ -1,6 +1,15 @@
 [
   {
     "date": "2026-08-21",
+    "macrostructure": "boxed table + Bento-adjacent briefing + Dossier Timeline + dense technical readout",
+    "theme": "slate/indigo — matched to the teleradiology project's reference design system (read-only reference, never edited)",
+    "enrichment": "none",
+    "scope": "app",
+    "theme_axes": "light / geometric-sans (Inter, Space Grotesk on Login only) / cool-blue (indigo ~256°)",
+    "brief": "DevPulse full-app re-theme — user wanted the dashboard's look to match a screenshot of the teleradiology project's clean/formal Radiologists list page. Retired the oxblood/Fraunces 'exclusive ledger' system for a slate/indigo system ported from teleradiology's DashboardSidebar/DataTable DNA: floating collapsible rounded-2xl sidebar (was a flush full-height rail), rounded-xl/2xl radius scale (was rounded-md/lg), boxed rounded-2xl bordered tables with washed header rows (was bare hairline-on-paper rows), Inter as the only app-shell font with Space Grotesk confined to Login (was Fraunces on every heading)."
+  },
+  {
+    "date": "2026-08-21",
     "macrostructure": "Ledger Row + Briefing + Dossier Timeline + exhibit-framed technical readout",
     "theme": "custom — formal/exclusive white, oxblood/wine anchor (was violet 281°)",
     "enrichment": "none",

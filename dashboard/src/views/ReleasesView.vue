@@ -1,19 +1,27 @@
 <template>
   <div class="releases-root flex-1 w-full">
-    <div class="max-w-4xl mx-auto px-6 py-8">
+    <div class="px-6 py-8">
 
       <!-- Header -->
       <div class="flex flex-wrap items-center justify-between gap-3 mb-8">
         <div class="flex items-center gap-3">
-          <router-link to="/" class="text-[var(--dp-ink-3)] hover:text-[var(--dp-ink)] text-sm transition-colors">Projects</router-link>
+          <button
+            @click="router.back()"
+            type="button"
+            title="Back"
+            class="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--dp-ink-3)] hover:text-[var(--dp-ink)] hover:bg-[var(--dp-surface-2)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)] shrink-0"
+          >
+            <ArrowLeft :size="16" />
+          </button>
+          <router-link to="/projects" class="text-[var(--dp-ink-3)] hover:text-[var(--dp-ink)] text-sm transition-colors">Projects</router-link>
           <span class="text-[var(--dp-rule)]">/</span>
           <router-link :to="`/projects/${route.params.id}/issues`" class="text-[var(--dp-ink-3)] hover:text-[var(--dp-ink)] text-sm transition-colors">Issues</router-link>
           <span class="text-[var(--dp-rule)]">/</span>
-          <h1 class="dp-display text-[15px] font-semibold text-[var(--dp-ink)]">Releases</h1>
+          <h1 class="text-[15px] font-semibold text-[var(--dp-ink)]">Releases</h1>
         </div>
         <button
           @click="showCreate = true"
-          class="flex items-center gap-2 whitespace-nowrap bg-[var(--dp-accent)] hover:bg-[var(--dp-accent-hover)] active:translate-y-px text-white px-4 py-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--dp-accent)]"
+          class="flex items-center gap-2 whitespace-nowrap bg-[var(--dp-accent)] hover:bg-[var(--dp-accent-hover)] active:translate-y-px text-white px-4 py-2 rounded-xl text-sm font-medium shadow-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--dp-accent)]"
         >
           <span class="text-base leading-none">+</span>
           New Release
@@ -22,7 +30,7 @@
 
       <!-- Loading -->
       <div v-if="loading" class="space-y-3">
-        <div v-for="i in 4" :key="i" class="h-20 bg-[var(--dp-surface-2)] rounded-lg animate-pulse" />
+        <div v-for="i in 4" :key="i" class="h-20 bg-[var(--dp-surface-2)] rounded-2xl animate-pulse" />
       </div>
 
       <!-- Empty -->
@@ -54,12 +62,12 @@
             </div>
 
             <!-- Card -->
-            <div class="dv-card flex-1 bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-lg p-4 hover:bg-[var(--dp-surface-2)]/60 transition-colors mb-1">
+            <div class="dv-card flex-1 bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-2xl p-4 hover:bg-[var(--dp-surface-2)]/60 transition-colors mb-1">
               <div class="flex items-start justify-between gap-3 mb-3">
                 <!-- Version tag -->
                 <div class="flex items-center gap-2.5">
                   <span :class="versionBadge(rel.version)"
-                        class="dp-mono text-[11px] font-bold px-2 py-0.5 rounded-md tracking-wide">
+                        class="dp-mono text-[11px] font-bold px-2 py-0.5 rounded-full tracking-wide">
                     v{{ rel.version }}
                   </span>
                   <span v-if="idx === 0" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[var(--dp-accent-soft)] text-[var(--dp-accent)] uppercase tracking-wider">
@@ -73,7 +81,7 @@
                     :href="rel.url"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="w-6 h-6 flex items-center justify-center rounded text-[var(--dp-ink-3)] hover:text-blue-600 hover:bg-blue-500/10 transition-colors"
+                    class="w-6 h-6 flex items-center justify-center rounded-lg text-[var(--dp-ink-3)] hover:text-blue-600 hover:bg-blue-500/10 transition-colors"
                     title="Open deploy URL"
                   >
                     <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -82,7 +90,7 @@
                   </a>
                   <button
                     @click="openUpload(rel)"
-                    class="w-6 h-6 flex items-center justify-center rounded text-[var(--dp-ink-3)] hover:text-[var(--dp-accent)] hover:bg-[var(--dp-accent-soft)] transition-colors"
+                    class="w-6 h-6 flex items-center justify-center rounded-lg text-[var(--dp-ink-3)] hover:text-[var(--dp-accent)] hover:bg-[var(--dp-accent-soft)] transition-colors"
                     title="Upload source map"
                   >
                     <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -91,7 +99,7 @@
                   </button>
                   <button
                     @click="confirmDelete(rel)"
-                    class="w-6 h-6 flex items-center justify-center rounded text-[var(--dp-ink-3)] hover:text-red-600 hover:bg-red-500/10 transition-colors"
+                    class="w-6 h-6 flex items-center justify-center rounded-lg text-[var(--dp-ink-3)] hover:text-red-600 hover:bg-red-500/10 transition-colors"
                     title="Delete release"
                   >
                     <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -159,15 +167,15 @@
           class="fixed inset-0 bg-[var(--dp-scrim)] backdrop-blur-sm flex items-center justify-center z-50 px-4"
           @click.self="showCreate = false"
         >
-          <div class="dv-modal bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-lg p-6 w-full max-w-sm">
-            <h2 class="dp-display text-lg font-semibold text-[var(--dp-ink)] mb-5">New Release</h2>
+          <div class="dv-modal bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-2xl p-6 w-full max-w-sm">
+            <h2 class="text-lg font-semibold text-[var(--dp-ink)] mb-5">New Release</h2>
             <div class="space-y-3">
               <div>
                 <label class="block text-xs text-[var(--dp-ink-2)] mb-1.5 font-medium">Version <span class="text-red-600">*</span></label>
                 <input
                   v-model="form.version"
                   placeholder="e.g. 1.4.2 or 2.0.0-beta.1"
-                  class="dp-mono w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-md px-3 py-2.5 text-sm text-[var(--dp-ink)]
+                  class="dp-mono w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-xl px-3 py-2.5 text-sm text-[var(--dp-ink)]
                          placeholder-[var(--dp-ink-3)] focus:outline-none focus:border-[var(--dp-accent)] focus:ring-2 focus:ring-[var(--dp-accent)]/15 transition-colors"
                 />
               </div>
@@ -176,7 +184,7 @@
                 <input
                   v-model="form.ref"
                   placeholder="abc1234 or refs/tags/v1.4.2"
-                  class="dp-mono w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-md px-3 py-2.5 text-sm text-[var(--dp-ink)]
+                  class="dp-mono w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-xl px-3 py-2.5 text-sm text-[var(--dp-ink)]
                          placeholder-[var(--dp-ink-3)] focus:outline-none focus:border-[var(--dp-accent)] focus:ring-2 focus:ring-[var(--dp-accent)]/15 transition-colors"
                 />
               </div>
@@ -185,7 +193,7 @@
                 <input
                   v-model="form.url"
                   placeholder="https://ci.example.com/builds/123"
-                  class="w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-md px-3 py-2.5 text-sm text-[var(--dp-ink)]
+                  class="w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-xl px-3 py-2.5 text-sm text-[var(--dp-ink)]
                          placeholder-[var(--dp-ink-3)] focus:outline-none focus:border-[var(--dp-accent)] focus:ring-2 focus:ring-[var(--dp-accent)]/15 transition-colors"
                 />
               </div>
@@ -196,13 +204,13 @@
                 @click="createRelease"
                 :disabled="!form.version.trim() || creating"
                 class="flex-1 bg-[var(--dp-accent)] hover:bg-[var(--dp-accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed
-                       text-white py-2.5 rounded-md text-sm font-medium transition-colors"
+                       text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
               >
                 {{ creating ? 'Creating…' : 'Create release' }}
               </button>
               <button
                 @click="showCreate = false"
-                class="flex-1 bg-[var(--dp-surface-2)] hover:bg-[var(--dp-rule)] text-[var(--dp-ink-2)] py-2.5 rounded-md text-sm transition-colors"
+                class="flex-1 bg-[var(--dp-surface-2)] hover:bg-[var(--dp-rule)] text-[var(--dp-ink-2)] py-2.5 rounded-xl text-sm transition-colors"
               >
                 Cancel
               </button>
@@ -218,8 +226,8 @@
           class="fixed inset-0 bg-[var(--dp-scrim)] backdrop-blur-sm flex items-center justify-center z-50 px-4"
           @click.self="uploadTarget = null"
         >
-          <div class="dv-modal bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-lg p-6 w-full max-w-sm">
-            <h2 class="dp-display text-lg font-semibold text-[var(--dp-ink)] mb-1">Upload source map</h2>
+          <div class="dv-modal bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-2xl p-6 w-full max-w-sm">
+            <h2 class="text-lg font-semibold text-[var(--dp-ink)] mb-1">Upload source map</h2>
             <p class="text-xs text-[var(--dp-ink-2)] mb-5">
               For <span class="dp-mono text-[var(--dp-ink)]">v{{ uploadTarget.version }}</span> — deobfuscates
               minified JS stack traces for events tagged with this release.
@@ -232,7 +240,7 @@
                 <input
                   v-model="uploadForm.artifactName"
                   placeholder="the exact `file` path/URL as it appears in stack frames"
-                  class="dp-mono w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-md px-3 py-2.5 text-sm text-[var(--dp-ink)]
+                  class="dp-mono w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-xl px-3 py-2.5 text-sm text-[var(--dp-ink)]
                          placeholder-[var(--dp-ink-3)] focus:outline-none focus:border-[var(--dp-accent)] focus:ring-2 focus:ring-[var(--dp-accent)]/15 transition-colors"
                 />
               </div>
@@ -244,7 +252,7 @@
                   type="file"
                   accept=".map,application/json"
                   @change="handleFileChange"
-                  class="w-full text-sm text-[var(--dp-ink-2)] file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0
+                  class="w-full text-sm text-[var(--dp-ink-2)] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0
                          file:bg-[var(--dp-surface-2)] file:text-[var(--dp-ink-2)] file:text-xs hover:file:bg-[var(--dp-rule)] file:transition-colors"
                 />
               </div>
@@ -256,13 +264,13 @@
                 @click="submitUpload"
                 :disabled="!uploadForm.artifactName.trim() || !uploadForm.file || uploading"
                 class="flex-1 bg-[var(--dp-accent)] hover:bg-[var(--dp-accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed
-                       text-white py-2.5 rounded-md text-sm font-medium transition-colors"
+                       text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
               >
                 {{ uploading ? 'Uploading…' : 'Upload' }}
               </button>
               <button
                 @click="uploadTarget = null"
-                class="flex-1 bg-[var(--dp-surface-2)] hover:bg-[var(--dp-rule)] text-[var(--dp-ink-2)] py-2.5 rounded-md text-sm transition-colors"
+                class="flex-1 bg-[var(--dp-surface-2)] hover:bg-[var(--dp-rule)] text-[var(--dp-ink-2)] py-2.5 rounded-xl text-sm transition-colors"
               >
                 Close
               </button>
@@ -278,8 +286,8 @@
           class="fixed inset-0 bg-[var(--dp-scrim)] backdrop-blur-sm flex items-center justify-center z-50 px-4"
           @click.self="deleteTarget = null"
         >
-          <div class="dv-modal bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-lg p-6 w-full max-w-sm">
-            <h2 class="dp-display text-lg font-semibold text-[var(--dp-ink)] mb-2">Delete release?</h2>
+          <div class="dv-modal bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-2xl p-6 w-full max-w-sm">
+            <h2 class="text-lg font-semibold text-[var(--dp-ink)] mb-2">Delete release?</h2>
             <p class="text-sm text-[var(--dp-ink-2)] mb-6">
               Remove <span class="dp-mono text-[var(--dp-ink)]">v{{ deleteTarget.version }}</span> from the timeline.
               Issue linkage will be preserved but the release entry will be gone.
@@ -287,13 +295,13 @@
             <div class="flex gap-3">
               <button
                 @click="doDelete"
-                class="flex-1 bg-red-600 hover:bg-red-500 text-white py-2.5 rounded-md text-sm font-medium transition-colors"
+                class="flex-1 bg-red-600 hover:bg-red-500 text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
               >
                 Delete
               </button>
               <button
                 @click="deleteTarget = null"
-                class="flex-1 bg-[var(--dp-surface-2)] hover:bg-[var(--dp-rule)] text-[var(--dp-ink-2)] py-2.5 rounded-md text-sm transition-colors"
+                class="flex-1 bg-[var(--dp-surface-2)] hover:bg-[var(--dp-rule)] text-[var(--dp-ink-2)] py-2.5 rounded-xl text-sm transition-colors"
               >
                 Cancel
               </button>
@@ -308,10 +316,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import { ArrowLeft } from 'lucide-vue-next'
 
 const route       = useRoute()
+const router      = useRouter()
 const releases    = ref([])
 const loading     = ref(true)
 const showCreate  = ref(false)
@@ -424,20 +434,15 @@ function formatDate(date) {
 </script>
 
 <style scoped>
-/* Hallmark · macrostructure: Dossier Timeline (was deployment timeline) · genre: modern-minimal (formal/exclusive)
- * theme: DevPulse locked system (design.md) — formal white workspace, oxblood accent
- * display: Fraunces · body: Geist · outlier(mono): JetBrains Mono
- * hairline spine, quieter record cards — see design.md § Macrostructure family
+/* Hallmark · macrostructure: Dossier Timeline · genre: modern-minimal (clean/formal)
+ * theme: DevPulse locked system (design.md) — slate/maroon workspace (accent moved off the teleradiology-matched indigo per a later request)
+ * body: Inter · outlier(mono): JetBrains Mono
+ * hairline spine, rounded-2xl record cards — see design.md § Macrostructure family
  */
 .releases-root {
   background: var(--dp-paper);
   font-family: var(--dp-font-body);
   color: var(--dp-ink);
-}
-
-.dp-display {
-  font-family: var(--dp-font-display);
-  letter-spacing: -0.01em;
 }
 
 .dp-mono {

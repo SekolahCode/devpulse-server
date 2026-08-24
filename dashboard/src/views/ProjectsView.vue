@@ -1,71 +1,90 @@
 <template>
   <div class="projects-root flex-1 w-full">
-    <div class="max-w-5xl mx-auto px-6 py-10">
+    <div class="px-6 py-8">
 
       <!-- Page header -->
-      <div class="flex flex-wrap items-center justify-between gap-3 mb-8">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 class="dp-display text-2xl font-semibold text-[var(--dp-ink)] tracking-tight">Projects</h1>
+          <h1 class="text-2xl font-semibold text-[var(--dp-ink)] tracking-tight">Projects</h1>
           <p class="text-sm text-[var(--dp-ink-2)] mt-0.5">
             {{ projectStore.loaded ? countLine : 'Loading…' }}
           </p>
         </div>
         <button
           @click="showCreate = true"
-          class="flex items-center gap-2 whitespace-nowrap shrink-0 bg-[var(--dp-accent)] hover:bg-[var(--dp-accent-hover)] active:translate-y-px text-white px-5 py-2.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--dp-accent)]"
+          class="flex items-center gap-2 whitespace-nowrap shrink-0 bg-[var(--dp-accent)] hover:bg-[var(--dp-accent-hover)] active:translate-y-px text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--dp-accent)]"
         >
-          <span class="text-base leading-none">+</span>
+          <Plus :size="16" />
           New Project
         </button>
       </div>
 
       <!-- Loading skeleton -->
-      <div v-if="!projectStore.loaded" class="border-t border-[var(--dp-rule)]">
-        <div v-for="i in 4" :key="i" class="h-[4.5rem] border-b border-[var(--dp-rule)] px-1 flex items-center gap-4">
-          <div class="w-9 h-9 rounded-md bg-[var(--dp-surface-2)] animate-pulse shrink-0" />
+      <div v-if="!projectStore.loaded" class="overflow-hidden rounded-2xl border border-[var(--dp-rule)] bg-[var(--dp-surface)]">
+        <div v-for="i in 4" :key="i" class="h-[4.5rem] border-b border-[var(--dp-rule)] last:border-0 px-5 flex items-center gap-4">
+          <div class="w-9 h-9 rounded-full bg-[var(--dp-surface-2)] animate-pulse shrink-0" />
           <div class="h-3.5 w-40 rounded bg-[var(--dp-surface-2)] animate-pulse" />
         </div>
       </div>
 
       <!-- Empty state -->
-      <div v-else-if="!projectStore.projects.length" class="flex flex-col items-center justify-center py-24 text-center border-t border-[var(--dp-rule)]">
-        <div class="w-12 h-12 rounded-md bg-[var(--dp-accent-soft)] flex items-center justify-center text-2xl mb-4">📦</div>
-        <p class="dp-display text-[var(--dp-ink)] text-lg">No projects yet</p>
+      <div v-else-if="!projectStore.projects.length" class="flex flex-col items-center justify-center py-24 text-center rounded-2xl border border-[var(--dp-rule)] bg-[var(--dp-surface)]">
+        <div class="w-12 h-12 rounded-full bg-[var(--dp-accent-soft)] flex items-center justify-center text-2xl mb-4">📦</div>
+        <p class="text-[var(--dp-ink)] text-lg font-medium">No projects yet</p>
         <p class="text-[var(--dp-ink-2)] text-sm mt-1">Create your first project to start tracking errors</p>
         <button
           @click="showCreate = true"
-          class="mt-5 bg-[var(--dp-accent)] hover:bg-[var(--dp-accent-hover)] text-white px-5 py-2.5 rounded-md text-sm font-medium transition-colors"
+          class="mt-5 flex items-center gap-2 bg-[var(--dp-accent)] hover:bg-[var(--dp-accent-hover)] text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-sm transition-colors"
         >
+          <Plus :size="16" />
           Create a project
         </button>
       </div>
 
-      <!-- Ledger row list — hairline dividers, no boxed panel -->
-      <div v-else class="border-t border-[var(--dp-rule)]">
+      <!-- Boxed table — matches the reference DataTable: rounded-2xl border, washed header, divide-y rows -->
+      <div v-else class="overflow-hidden rounded-2xl border border-[var(--dp-rule)] bg-[var(--dp-surface)]">
 
-        <!-- Column heads (desktop) -->
-        <div class="hidden md:grid dp-row-grid px-1 py-2.5 border-b border-[var(--dp-rule)]">
-          <span class="dp-mono text-[10px] uppercase tracking-widest text-[var(--dp-ink-3)]">Project</span>
-          <span class="dp-mono text-[10px] uppercase tracking-widest text-[var(--dp-ink-3)] text-right">Unresolved</span>
-          <span class="dp-mono text-[10px] uppercase tracking-widest text-[var(--dp-ink-3)] text-right">Last activity</span>
-          <span class="dp-mono text-[10px] uppercase tracking-widest text-[var(--dp-ink-3)] text-center">DSN</span>
-          <span class="dp-mono text-[10px] uppercase tracking-widest text-[var(--dp-ink-3)] text-right">Manage</span>
+        <!-- Column heads (desktop) — sortable via header buttons -->
+        <div class="hidden md:grid dp-row-grid px-5 py-3 bg-[var(--dp-surface-2)]/60 border-b border-[var(--dp-rule)]">
+          <button type="button" @click="handleSort('name')"
+            class="inline-flex items-center gap-1 text-xs font-medium text-[var(--dp-ink-3)] hover:text-[var(--dp-accent)] transition-colors">
+            Project
+            <ArrowUp v-if="sortKey === 'name' && sortDirection === 'asc'" :size="12" />
+            <ArrowDown v-else-if="sortKey === 'name' && sortDirection === 'desc'" :size="12" />
+            <ArrowUpDown v-else :size="12" class="text-[var(--dp-rule)]" />
+          </button>
+          <button type="button" @click="handleSort('unresolved')"
+            class="inline-flex items-center justify-end gap-1 text-xs font-medium text-[var(--dp-ink-3)] hover:text-[var(--dp-accent)] transition-colors">
+            Unresolved
+            <ArrowUp v-if="sortKey === 'unresolved' && sortDirection === 'asc'" :size="12" />
+            <ArrowDown v-else-if="sortKey === 'unresolved' && sortDirection === 'desc'" :size="12" />
+            <ArrowUpDown v-else :size="12" class="text-[var(--dp-rule)]" />
+          </button>
+          <button type="button" @click="handleSort('last_activity')"
+            class="inline-flex items-center justify-end gap-1 text-xs font-medium text-[var(--dp-ink-3)] hover:text-[var(--dp-accent)] transition-colors">
+            Last activity
+            <ArrowUp v-if="sortKey === 'last_activity' && sortDirection === 'asc'" :size="12" />
+            <ArrowDown v-else-if="sortKey === 'last_activity' && sortDirection === 'desc'" :size="12" />
+            <ArrowUpDown v-else :size="12" class="text-[var(--dp-rule)]" />
+          </button>
+          <span class="text-xs font-medium text-[var(--dp-ink-3)] text-center">DSN</span>
+          <span class="text-xs font-medium text-[var(--dp-ink-3)] text-right">Manage</span>
         </div>
 
         <!-- Rows -->
         <div
-          v-for="p in projectStore.projects"
+          v-for="p in sortedProjects"
           :key="p.id"
-          class="group grid dp-row-grid-mobile md:dp-row-grid items-center gap-y-2 px-1 py-5 border-b border-[var(--dp-rule)] hover:bg-[var(--dp-surface-2)]/40 transition-colors"
+          class="group grid dp-row-grid-mobile md:dp-row-grid items-center gap-y-2 px-5 py-4 border-b border-[var(--dp-rule)] last:border-0 last:rounded-b-2xl hover:bg-[var(--dp-surface-2)]/40 transition-colors"
         >
           <!-- Name cell → issues -->
           <router-link :to="`/projects/${p.id}/issues`"
             class="flex items-center gap-3 min-w-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--dp-accent)] rounded">
-            <div :class="platformColor(p.platform)" class="w-9 h-9 rounded-md flex items-center justify-center text-lg shrink-0">
-              {{ platformIcon(p.platform) }}
+            <div :class="platformColor(p.platform)" class="w-9 h-9 rounded-full flex items-center justify-center shrink-0">
+              <img :src="platformIcon(p.platform)" :alt="p.platform" class="w-5 h-5" />
             </div>
             <div class="min-w-0">
-              <span class="dp-display block text-[var(--dp-ink)] text-[16px] truncate group-hover:text-[var(--dp-accent)] transition-colors">
+              <span class="block text-[var(--dp-ink)] text-sm font-medium truncate group-hover:text-[var(--dp-accent)] transition-colors">
                 {{ p.name }}
               </span>
               <span class="block text-xs text-[var(--dp-ink-3)] capitalize">{{ p.platform }}</span>
@@ -94,191 +113,186 @@
           <!-- DSN copy -->
           <div class="md:justify-self-center">
             <button @click="copy(p.api_key)" :title="dsn(p.api_key)"
-              class="dp-mono inline-flex items-center gap-1.5 text-[11px] text-[var(--dp-ink-2)] hover:text-[var(--dp-ink)] border border-[var(--dp-rule)] hover:border-[var(--dp-ink-3)] rounded-md px-2.5 py-1 transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]">
-              ⎘ <span class="whitespace-nowrap">{{ copiedKey === p.api_key ? 'Copied ✓' : 'Copy DSN' }}</span>
+              class="dp-mono inline-flex items-center gap-1.5 text-[11px] text-[var(--dp-ink-2)] hover:text-[var(--dp-ink)] border border-[var(--dp-rule)] hover:border-[var(--dp-ink-3)] rounded-lg px-2.5 py-1 transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]">
+              <Copy :size="12" />
+              <span class="whitespace-nowrap">{{ copiedKey === p.api_key ? 'Copied ✓' : 'Copy DSN' }}</span>
             </button>
           </div>
 
-          <!-- Manage actions -->
-          <div class="flex items-center gap-1 md:justify-self-end">
-            <button @click="openAlerts(p)" title="Manage alerts"
-              class="w-7 h-7 flex items-center justify-center rounded text-[var(--dp-ink-3)] hover:text-amber-600 hover:bg-amber-500/10 transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 1a5.5 5.5 0 0 0-5.5 5.5v2.293l-1.146 1.146A.5.5 0 0 0 1.5 11h13a.5.5 0 0 0 .354-.854L13.5 8.793V6.5A5.5 5.5 0 0 0 8 1zM6.5 13a1.5 1.5 0 0 0 3 0H6.5z"/>
-              </svg>
-            </button>
-            <button @click="rotateKey(p)" title="Rotate API key"
-              class="w-7 h-7 flex items-center justify-center rounded text-[var(--dp-ink-3)] hover:text-cyan-600 hover:bg-cyan-500/10 transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-              </svg>
-            </button>
-            <button @click="startEdit(p)" title="Edit project"
-              class="w-7 h-7 flex items-center justify-center rounded text-[var(--dp-ink-3)] hover:text-[var(--dp-ink)] hover:bg-[var(--dp-rule)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]">
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11.5 2.5l2 2L5 13H3v-2L11.5 2.5z"/>
-              </svg>
-            </button>
-            <button @click="confirmDelete(p)" title="Delete project"
-              class="w-7 h-7 flex items-center justify-center rounded text-[var(--dp-ink-3)] hover:text-red-600 hover:bg-red-500/10 transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]">
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9h8l1-9"/>
-              </svg>
-            </button>
+          <!-- Manage actions — DropdownMenuContent teleports to <body>, so it
+               floats above the boxed table instead of being clipped by its
+               overflow-hidden (which a plain absolute-positioned div was). -->
+          <div class="flex items-center justify-center md:justify-self-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger as-child>
+                <button title="Manage project"
+                  class="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--dp-ink-3)] hover:text-[var(--dp-ink)] hover:bg-[var(--dp-surface-2)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)] data-[state=open]:text-[var(--dp-ink)] data-[state=open]:bg-[var(--dp-surface-2)]">
+                  <MoreVertical :size="16" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent class="w-52">
+                <DropdownMenuItem @click="openAlerts(p)">
+                  <Bell :size="13" class="shrink-0" />
+                  Manage alerts
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="rotateKey(p)">
+                  <RotateCcw :size="13" class="shrink-0" />
+                  Rotate API key
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="startEdit(p)">
+                  <Pencil :size="13" class="shrink-0" />
+                  Edit project
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" @click="confirmDelete(p)">
+                  <Trash2 :size="13" class="shrink-0" />
+                  Delete project
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
 
       <!-- ─── Create Project Modal ────────────────────────────────────────── -->
-      <Transition name="modal">
-        <div v-if="showCreate"
-          class="fixed inset-0 bg-[var(--dp-scrim)] backdrop-blur-sm flex items-center justify-center z-50 px-4"
-          @click.self="showCreate = false">
-          <div class="dp-modal bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-lg p-6 w-full max-w-sm">
-            <h2 class="dp-display text-lg font-semibold text-[var(--dp-ink)] mb-5">New Project</h2>
-            <div class="space-y-3">
-              <div>
-                <label class="block text-xs text-[var(--dp-ink-2)] mb-1.5 font-medium">Project name</label>
-                <input v-model="createForm.name" placeholder="e.g. My Laravel App" autofocus
-                  class="w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-md px-3 py-2.5 text-sm text-[var(--dp-ink)] placeholder-[var(--dp-ink-3)] focus:outline-none focus:border-[var(--dp-accent)] focus:ring-2 focus:ring-[var(--dp-accent)]/15 transition-colors" />
-              </div>
-              <div>
-                <label class="block text-xs text-[var(--dp-ink-2)] mb-1.5 font-medium">Platform</label>
-                <select v-model="createForm.platform"
-                  class="w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-md px-3 py-2.5 text-sm text-[var(--dp-ink)] focus:outline-none focus:border-[var(--dp-accent)] focus:ring-2 focus:ring-[var(--dp-accent)]/15 transition-colors">
-                  <option v-for="p in PLATFORMS" :key="p" :value="p" class="capitalize">{{ p }}</option>
-                </select>
-              </div>
-            </div>
-            <p v-if="createError" class="text-[12px] text-red-600 mt-3">{{ createError }}</p>
-            <div class="flex gap-3 mt-6">
-              <button @click="create" :disabled="!createForm.name.trim()"
-                class="flex-1 bg-[var(--dp-accent)] hover:bg-[var(--dp-accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed text-white py-2.5 rounded-md text-sm font-medium transition-colors">
-                Create project
-              </button>
-              <button @click="showCreate = false"
-                class="flex-1 bg-[var(--dp-surface-2)] hover:bg-[var(--dp-rule)] text-[var(--dp-ink-2)] py-2.5 rounded-md text-sm transition-colors">
-                Cancel
-              </button>
-            </div>
+      <Modal :open="showCreate" title="New project" @close="showCreate = false">
+        <div class="space-y-3">
+          <div>
+            <label class="dp-label">Project name</label>
+            <input v-model="createForm.name" placeholder="e.g. My Laravel App" autofocus class="dp-input" />
           </div>
+          <div>
+            <label class="dp-label">Platform</label>
+            <Select v-model="createForm.platform">
+              <SelectTrigger class="dp-select-trigger capitalize">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent class="bg-[var(--dp-surface)] border-[var(--dp-rule)] text-[var(--dp-ink)]">
+                <SelectItem v-for="p in PLATFORMS" :key="p" :value="p" class="dp-select-item capitalize">{{ p }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <p v-if="createError" class="text-[12px] text-red-600">{{ createError }}</p>
         </div>
-      </Transition>
+        <template #footer>
+          <button @click="create" :disabled="!createForm.name.trim()" class="dp-btn-primary">
+            Create project
+          </button>
+          <button @click="showCreate = false" class="dp-btn-secondary">Cancel</button>
+        </template>
+      </Modal>
 
       <!-- ─── Edit Project Modal ──────────────────────────────────────────── -->
-      <Transition name="modal">
-        <div v-if="editProject"
-          class="fixed inset-0 bg-[var(--dp-scrim)] backdrop-blur-sm flex items-center justify-center z-50 px-4"
-          @click.self="editProject = null">
-          <div class="dp-modal bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-lg p-6 w-full max-w-sm">
-            <h2 class="dp-display text-lg font-semibold text-[var(--dp-ink)] mb-5">Edit Project</h2>
-            <div class="space-y-3">
-              <div>
-                <label class="block text-xs text-[var(--dp-ink-2)] mb-1.5 font-medium">Project name</label>
-                <input v-model="editForm.name"
-                  class="w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-md px-3 py-2.5 text-sm text-[var(--dp-ink)] focus:outline-none focus:border-[var(--dp-accent)] focus:ring-2 focus:ring-[var(--dp-accent)]/15 transition-colors" />
-              </div>
-              <div>
-                <label class="block text-xs text-[var(--dp-ink-2)] mb-1.5 font-medium">Platform</label>
-                <select v-model="editForm.platform"
-                  class="w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-md px-3 py-2.5 text-sm text-[var(--dp-ink)] focus:outline-none focus:border-[var(--dp-accent)] focus:ring-2 focus:ring-[var(--dp-accent)]/15 transition-colors">
-                  <option v-for="p in PLATFORMS" :key="p" :value="p" class="capitalize">{{ p }}</option>
-                </select>
-              </div>
-            </div>
-            <div class="flex gap-3 mt-6">
-              <button @click="saveEdit" :disabled="!editForm.name.trim()"
-                class="flex-1 bg-[var(--dp-accent)] hover:bg-[var(--dp-accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed text-white py-2.5 rounded-md text-sm font-medium transition-colors">
-                Save changes
-              </button>
-              <button @click="editProject = null"
-                class="flex-1 bg-[var(--dp-surface-2)] hover:bg-[var(--dp-rule)] text-[var(--dp-ink-2)] py-2.5 rounded-md text-sm transition-colors">
-                Cancel
-              </button>
-            </div>
+      <Modal :open="!!editProject" title="Edit project" @close="editProject = null">
+        <div class="space-y-3">
+          <div>
+            <label class="dp-label">Project name</label>
+            <input v-model="editForm.name" class="dp-input" />
+          </div>
+          <div>
+            <label class="dp-label">Platform</label>
+            <Select v-model="editForm.platform">
+              <SelectTrigger class="dp-select-trigger capitalize">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent class="bg-[var(--dp-surface)] border-[var(--dp-rule)] text-[var(--dp-ink)]">
+                <SelectItem v-for="p in PLATFORMS" :key="p" :value="p" class="dp-select-item capitalize">{{ p }}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
-      </Transition>
+        <template #footer>
+          <button @click="saveEdit" :disabled="!editForm.name.trim()" class="dp-btn-primary">
+            Save changes
+          </button>
+          <button @click="editProject = null" class="dp-btn-secondary">Cancel</button>
+        </template>
+      </Modal>
+
+      <!-- ─── Rotate API Key Modal ────────────────────────────────────────── -->
+      <Modal :open="!!rotateTarget" title="Rotate API key?" @close="rotateTarget = null">
+        <template #description>
+          Every SDK still using <span class="text-[var(--dp-ink)] font-medium">{{ rotateTarget?.name }}</span>'s
+          current key will stop reporting until you update it with the new one.
+        </template>
+        <template #footer>
+          <button @click="doRotate" :disabled="rotating" class="dp-btn-primary">
+            {{ rotating ? 'Rotating…' : 'Rotate key' }}
+          </button>
+          <button @click="rotateTarget = null" class="dp-btn-secondary">Cancel</button>
+        </template>
+      </Modal>
 
       <!-- ─── Delete Confirm Modal ────────────────────────────────────────── -->
-      <Transition name="modal">
-        <div v-if="deleteTarget"
-          class="fixed inset-0 bg-[var(--dp-scrim)] backdrop-blur-sm flex items-center justify-center z-50 px-4"
-          @click.self="deleteTarget = null">
-          <div class="dp-modal bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-lg p-6 w-full max-w-sm">
-            <h2 class="dp-display text-lg font-semibold text-[var(--dp-ink)] mb-2">Delete project?</h2>
-            <p class="text-sm text-[var(--dp-ink-2)] mb-6">
-              This will permanently delete <span class="text-[var(--dp-ink)] font-medium">{{ deleteTarget.name }}</span>
-              and all its issues and events. This cannot be undone.
-            </p>
-            <div class="flex gap-3">
-              <button @click="doDelete"
-                class="flex-1 bg-red-600 hover:bg-red-500 text-white py-2.5 rounded-md text-sm font-medium transition-colors">
-                Delete permanently
-              </button>
-              <button @click="deleteTarget = null"
-                class="flex-1 bg-[var(--dp-surface-2)] hover:bg-[var(--dp-rule)] text-[var(--dp-ink-2)] py-2.5 rounded-md text-sm transition-colors">
-                Cancel
-              </button>
-            </div>
-          </div>
+      <Modal :open="!!deleteTarget" title="Delete project?" @close="deleteTarget = null">
+        <template #description>
+          This permanently deletes <span class="text-[var(--dp-ink)] font-medium">{{ deleteTarget?.name }}</span>
+          and every issue and event under it. This cannot be undone.
+        </template>
+        <div>
+          <label class="dp-label">
+            Type <span class="dp-mono text-[var(--dp-ink)]">{{ deleteTarget?.name }}</span> to confirm
+          </label>
+          <input v-model="deleteConfirmName" :placeholder="deleteTarget?.name" autofocus
+            class="dp-input" @keyup.enter="deleteConfirmed && doDelete()" />
         </div>
-      </Transition>
+        <template #footer>
+          <button @click="doDelete" :disabled="!deleteConfirmed"
+            class="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white py-2.5 rounded-xl text-sm font-medium transition-colors">
+            Delete permanently
+          </button>
+          <button @click="deleteTarget = null" class="dp-btn-secondary">Cancel</button>
+        </template>
+      </Modal>
 
       <!-- ─── Alerts Modal ────────────────────────────────────────────────── -->
-      <Transition name="modal">
-        <div v-if="alertsProject"
-          class="fixed inset-0 bg-[var(--dp-scrim)] backdrop-blur-sm flex items-center justify-center z-50 px-4"
-          @click.self="alertsProject = null">
-          <div class="dp-modal bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-lg p-6 w-full max-w-lg">
-            <div class="flex items-center justify-between mb-5">
-              <h2 class="dp-display text-lg font-semibold text-[var(--dp-ink)]">
-                Alerts — <span class="text-[var(--dp-accent)]">{{ alertsProject.name }}</span>
-              </h2>
-              <button @click="alertsProject = null" class="text-[var(--dp-ink-3)] hover:text-[var(--dp-ink)] text-lg leading-none">✕</button>
-            </div>
+      <Modal :open="!!alertsProject" size="lg" @close="alertsProject = null">
+        <template #title>
+          Alerts — <span class="text-[var(--dp-accent)]">{{ alertsProject?.name }}</span>
+        </template>
 
-            <div v-if="alerts.length" class="space-y-2 mb-4">
-              <div v-for="a in alerts" :key="a.id"
-                class="flex items-center gap-3 bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-md px-3 py-2.5">
-                <span :class="channelIcon(a.channel).color" class="text-lg shrink-0">{{ channelIcon(a.channel).icon }}</span>
-                <div class="min-w-0 flex-1">
-                  <p class="dp-mono text-[12px] text-[var(--dp-ink-2)] truncate">{{ a.endpoint }}</p>
-                  <p class="text-[10px] text-[var(--dp-ink-3)] capitalize">{{ a.channel }} · {{ a.cooldown_minutes ?? 60 }}m cooldown</p>
-                </div>
-                <button @click="toggleAlert(a)"
-                  :class="a.enabled ? 'bg-emerald-500/15 text-emerald-700' : 'bg-[var(--dp-surface-2)] text-[var(--dp-ink-3)]'"
-                  class="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide transition-colors">
-                  {{ a.enabled ? 'ON' : 'OFF' }}
-                </button>
-                <button @click="deleteAlertItem(a)"
-                  class="w-6 h-6 flex items-center justify-center rounded text-[var(--dp-ink-3)] hover:text-red-600 hover:bg-red-500/10 transition-colors shrink-0">
-                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                    <line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/>
-                  </svg>
-                </button>
-              </div>
+        <div v-if="alerts.length" class="space-y-2 mb-4">
+          <div v-for="a in alerts" :key="a.id"
+            class="flex items-center gap-3 bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-xl px-3 py-2.5">
+            <span :class="channelIcon(a.channel).color" class="text-lg shrink-0">{{ channelIcon(a.channel).icon }}</span>
+            <div class="min-w-0 flex-1">
+              <p class="dp-mono text-[12px] text-[var(--dp-ink-2)] truncate">{{ a.endpoint }}</p>
+              <p class="text-[10px] text-[var(--dp-ink-3)] capitalize">{{ a.channel }} · {{ a.cooldown_minutes ?? 60 }}m cooldown</p>
             </div>
-            <p v-else class="text-sm text-[var(--dp-ink-2)] mb-4">No alerts configured for this project.</p>
-
-            <div class="border-t border-[var(--dp-rule)] pt-4">
-              <p class="text-[11px] text-[var(--dp-ink-3)] uppercase tracking-wide font-medium mb-3">Add Alert</p>
-              <div class="space-y-2">
-                <select v-model="alertForm.channel"
-                  class="w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-md px-3 py-2 text-sm text-[var(--dp-ink)] focus:outline-none focus:border-[var(--dp-accent)] focus:ring-2 focus:ring-[var(--dp-accent)]/15 transition-colors">
-                  <option v-for="ch in CHANNELS" :key="ch" :value="ch">{{ channelLabel(ch) }}</option>
-                </select>
-                <input v-model="alertForm.endpoint" :placeholder="alertPlaceholder"
-                  class="dp-mono w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-md px-3 py-2 text-sm text-[var(--dp-ink)] placeholder-[var(--dp-ink-3)] focus:outline-none focus:border-[var(--dp-accent)] focus:ring-2 focus:ring-[var(--dp-accent)]/15 transition-colors" />
-                <button @click="addAlert" :disabled="!alertForm.endpoint.trim()"
-                  class="w-full bg-[var(--dp-accent)] hover:bg-[var(--dp-accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed text-white py-2 rounded-md text-sm font-medium transition-colors">
-                  Add alert
-                </button>
-              </div>
-            </div>
+            <button @click="toggleAlert(a)"
+              :class="a.enabled ? 'bg-emerald-500/15 text-emerald-700' : 'bg-[var(--dp-surface-2)] text-[var(--dp-ink-3)]'"
+              class="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide transition-colors">
+              {{ a.enabled ? 'ON' : 'OFF' }}
+            </button>
+            <button @click="deleteAlertItem(a)"
+              class="w-6 h-6 flex items-center justify-center rounded-lg text-[var(--dp-ink-3)] hover:text-red-600 hover:bg-red-500/10 transition-colors shrink-0">
+              <Trash2 :size="12" />
+            </button>
           </div>
         </div>
-      </Transition>
+        <p v-else class="text-sm text-[var(--dp-ink-2)] mb-4">No alerts configured for this project.</p>
+
+        <div class="border-t border-[var(--dp-rule)] pt-4">
+          <p class="text-[11px] text-[var(--dp-ink-3)] uppercase tracking-wide font-medium mb-3">Add alert</p>
+          <div class="space-y-2">
+            <Select v-model="alertForm.channel">
+              <SelectTrigger class="dp-select-trigger">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent class="bg-[var(--dp-surface)] border-[var(--dp-rule)] text-[var(--dp-ink)]">
+                <SelectItem v-for="ch in CHANNELS" :key="ch" :value="ch" class="dp-select-item">
+                  {{ channelLabel(ch) }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <input v-model="alertForm.endpoint" :placeholder="alertPlaceholder" class="dp-input dp-mono" />
+            <button @click="addAlert" :disabled="!alertForm.endpoint.trim()"
+              class="w-full bg-[var(--dp-accent)] hover:bg-[var(--dp-accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed text-white py-2.5 rounded-xl text-sm font-medium transition-colors">
+              Add alert
+            </button>
+          </div>
+        </div>
+      </Modal>
 
     </div>
   </div>
@@ -287,6 +301,10 @@
 <script setup>
 import axios from 'axios'
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { ArrowUp, ArrowDown, ArrowUpDown, Plus, Bell, RotateCcw, Pencil, Trash2, Copy, MoreVertical } from 'lucide-vue-next'
+import { Modal } from '@/components/ui/modal'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { useProjectStore } from '../stores/project'
 import { useToastStore }   from '../stores/toast'
 import { PLATFORMS, CHANNELS, platformIcon, platformColor } from '../composables/useColors'
@@ -301,6 +319,15 @@ const alertsProject = ref(null)
 const alerts        = ref([])
 const createError   = ref('')
 const copiedKey     = ref(null)
+const rotateTarget  = ref(null)
+const rotating      = ref(false)
+
+// Delete requires typing the exact project name — the action is irreversible
+// and wipes every issue/event under the project, so a single click is too cheap.
+const deleteConfirmName = ref('')
+const deleteConfirmed = computed(() =>
+  !!deleteTarget.value && deleteConfirmName.value.trim() === deleteTarget.value.name
+)
 
 const createForm = ref({ name: '', platform: 'laravel' })
 const editForm   = ref({ name: '', platform: 'laravel' })
@@ -332,6 +359,33 @@ const countLine = computed(() => {
   return broken > 0 ? `${base} · ${broken} with unresolved issues` : base
 })
 
+// ── Sortable columns ──────────────────────────────────────────────────────────
+const sortKey       = ref(null)
+const sortDirection = ref('asc')
+
+function handleSort(key) {
+  sortDirection.value = sortKey.value === key && sortDirection.value === 'asc' ? 'desc' : 'asc'
+  sortKey.value = key
+}
+
+const sortedProjects = computed(() => {
+  if (!sortKey.value) return projectStore.projects
+  const dir = sortDirection.value === 'asc' ? 1 : -1
+
+  return [...projectStore.projects].sort((a, b) => {
+    if (sortKey.value === 'name') {
+      return a.name.localeCompare(b.name) * dir
+    }
+    if (sortKey.value === 'unresolved') {
+      return ((health[a.id]?.total ?? -1) - (health[b.id]?.total ?? -1)) * dir
+    }
+    // last_activity
+    const aTime = health[a.id]?.lastSeen ? new Date(health[a.id].lastSeen).getTime() : -1
+    const bTime = health[b.id]?.lastSeen ? new Date(health[b.id].lastSeen).getTime() : -1
+    return (aTime - bTime) * dir
+  })
+})
+
 function timeAgo(iso) {
   if (!iso) return '—'
   const s = (Date.now() - new Date(iso).getTime()) / 1000
@@ -343,10 +397,13 @@ function timeAgo(iso) {
 }
 
 // ── Keyboard: Esc closes any open modal ──────────────────────────────────────
+// (the Manage dropdown closes itself — reka-ui's DropdownMenu owns its own
+// open state and outside-click/Escape handling.)
 function onKeydown(e) {
   if (e.key !== 'Escape') return
   if (alertsProject.value) { alertsProject.value = null; return }
   if (deleteTarget.value)  { deleteTarget.value  = null; return }
+  if (rotateTarget.value)  { rotateTarget.value  = null; return }
   if (editProject.value)   { editProject.value   = null; return }
   if (showCreate.value)    { showCreate.value    = false }
 }
@@ -359,7 +416,9 @@ onMounted(async () => {
   }
   catch { toast.error('Failed to load projects') }
 })
-onUnmounted(() => document.removeEventListener('keydown', onKeydown))
+onUnmounted(() => {
+  document.removeEventListener('keydown', onKeydown)
+})
 
 // ── Create ────────────────────────────────────────────────────────────────────
 async function create() {
@@ -392,20 +451,29 @@ async function saveEdit() {
 }
 
 // ── Rotate API key ────────────────────────────────────────────────────────────
-async function rotateKey(p) {
-  if (!confirm(`Rotate the API key for "${p.name}"?\nAll SDKs using the old key will stop working until updated.`)) return
+function rotateKey(p) { rotateTarget.value = p }
+
+async function doRotate() {
+  rotating.value = true
   try {
-    await projectStore.rotateKey(p.id)
+    await projectStore.rotateKey(rotateTarget.value.id)
     toast.success('API key rotated successfully')
+    rotateTarget.value = null
   } catch {
     toast.error('Failed to rotate API key')
+  } finally {
+    rotating.value = false
   }
 }
 
 // ── Delete ────────────────────────────────────────────────────────────────────
-function confirmDelete(p) { deleteTarget.value = p }
+function confirmDelete(p) {
+  deleteTarget.value = p
+  deleteConfirmName.value = ''
+}
 
 async function doDelete() {
+  if (!deleteConfirmed.value) return
   try {
     await projectStore.remove(deleteTarget.value.id)
     deleteTarget.value = null
@@ -484,21 +552,16 @@ const channelIcon = (ch) => ({
 </script>
 
 <style scoped>
-/* Hallmark · macrostructure: Ledger Row · genre: modern-minimal (formal/exclusive)
- * design-system: design.md · designed-as-app · nav: N3 side-rail (App.vue)
- * formal white workspace, oxblood accent · counts via /api/issues?limit=1
- * rows sit on hairline dividers, no boxed panel — see design.md § Macrostructure family
+/* Hallmark · macrostructure: boxed table · genre: modern-minimal (clean/formal)
+ * design-system: design.md · designed-as-app · nav: floating rail (App.vue)
+ * slate/maroon workspace (accent moved off the teleradiology-matched indigo per a later request) · counts via /api/issues?limit=1
+ * rows live in a rounded-2xl bordered box with divide-y hairlines — see design.md § Macrostructure family
  * pre-emit critique: P4 H5 E4 S4 R5 V4
  */
 .projects-root {
   background: var(--dp-paper);
   font-family: var(--dp-font-body);
   color: var(--dp-ink);
-}
-
-.dp-display {
-  font-family: var(--dp-font-display);
-  letter-spacing: -0.01em;
 }
 
 .dp-mono {
@@ -511,7 +574,7 @@ const channelIcon = (ch) => ({
   .dp-row-grid,
   .md\:dp-row-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 6.5rem 7.5rem 8rem auto;
+    grid-template-columns: minmax(0, 1fr) 6.5rem 7.5rem 8rem 9rem;
     column-gap: 1rem;
     align-items: center;
   }
@@ -527,14 +590,70 @@ const channelIcon = (ch) => ({
   .dp-row-grid-mobile > :first-child { grid-column: 1 / -1; }
 }
 
-.dp-modal {
-  box-shadow: 0 12px 32px oklch(20% 0.02 40 / 16%);
+/* Shared modal form/action styling — every dialog on this page renders through
+   the same <Modal> shell, so these keep field and button treatment identical
+   across create / edit / rotate / delete / alerts instead of per-modal classes. */
+.dp-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--dp-ink-2);
+  margin-bottom: 0.375rem;
 }
 
-.modal-enter-active, .modal-leave-active { transition: opacity 0.15s ease; }
-.modal-enter-from, .modal-leave-to { opacity: 0; }
-
-@media (prefers-reduced-motion: reduce) {
-  .modal-enter-active, .modal-leave-active { transition-duration: 0.01s; }
+.dp-input {
+  width: 100%;
+  background: var(--dp-paper);
+  border: 1px solid var(--dp-rule);
+  border-radius: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--dp-ink);
+  transition: border-color 120ms, box-shadow 120ms;
 }
+.dp-input::placeholder { color: var(--dp-ink-3); }
+.dp-input:focus {
+  outline: none;
+  border-color: var(--dp-accent);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--dp-accent) 15%, transparent);
+}
+
+/* shadcn Select styled to match .dp-input so a native-looking field and a
+   custom dropdown never sit side by side in the same form. */
+.dp-select-trigger {
+  width: 100%;
+  background: var(--dp-paper);
+  border-color: var(--dp-rule);
+  border-radius: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  height: auto;
+  font-size: 0.875rem;
+  color: var(--dp-ink);
+}
+
+.dp-select-item:focus {
+  background: var(--dp-accent-soft);
+  color: var(--dp-accent);
+}
+
+.dp-btn-primary,
+.dp-btn-secondary {
+  flex: 1;
+  padding-block: 0.625rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  transition: background-color 120ms, opacity 120ms;
+}
+.dp-btn-primary {
+  background: var(--dp-accent);
+  color: #fff;
+  font-weight: 500;
+}
+.dp-btn-primary:hover:not(:disabled) { background: var(--dp-accent-hover); }
+.dp-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.dp-btn-secondary {
+  background: var(--dp-surface-2);
+  color: var(--dp-ink-2);
+}
+.dp-btn-secondary:hover { background: var(--dp-rule); }
 </style>

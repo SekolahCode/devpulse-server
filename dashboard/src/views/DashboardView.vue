@@ -1,157 +1,108 @@
 <template>
-  <div class="dashboard-root flex-1 w-full">
-    <div class="max-w-6xl mx-auto px-6 py-10 space-y-10">
+  <div class="home-root flex-1 w-full">
+    <div class="px-6 py-10 space-y-8">
 
       <!-- Page header -->
-      <div class="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 class="dv-display text-2xl md:text-[28px] font-semibold text-[var(--dp-ink)] tracking-tight">Analytics</h1>
-          <p class="text-sm text-[var(--dp-ink-2)] mt-1">Last 14 days · all projects</p>
+      <div>
+        <h1 class="text-2xl md:text-[28px] font-semibold text-[var(--dp-ink)] tracking-tight">Dashboard</h1>
+        <p class="text-sm text-[var(--dp-ink-2)] mt-1">Welcome back — here's what's happening across your projects.</p>
+      </div>
+
+      <!-- Stats — same bento language as the Issues page, global across every project -->
+      <div v-if="stats" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div v-for="s in statCards" :key="s.key"
+          class="rounded-2xl border border-[var(--dp-rule)] bg-[var(--dp-surface)] p-4 flex flex-col gap-2">
+          <div class="flex items-center gap-1.5" :class="s.color">
+            <component :is="s.icon" :size="14" />
+            <span class="text-[10px] uppercase tracking-wide font-medium text-[var(--dp-ink-3)]">{{ s.label }}</span>
+          </div>
+          <span class="dp-mono tabular-nums text-2xl font-semibold" :class="s.color">{{ s.value }}</span>
+          <p class="text-[11px] text-[var(--dp-ink-3)] leading-snug">{{ s.story }}</p>
+        </div>
+      </div>
+      <div v-else class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div v-for="i in 4" :key="i" class="h-[6.5rem] rounded-2xl bg-[var(--dp-surface-2)] animate-pulse" />
+      </div>
+
+      <!-- Two-column: projects snapshot (wide) + recent activity (narrow) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+        <!-- Your Projects -->
+        <div class="lg:col-span-8 rounded-2xl border border-[var(--dp-rule)] bg-[var(--dp-surface)] overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--dp-rule)]">
+            <div>
+              <h2 class="text-[15px] font-semibold text-[var(--dp-ink)]">Your projects</h2>
+              <p class="text-xs text-[var(--dp-ink-2)] mt-0.5">Sorted by unresolved issues</p>
+            </div>
+            <router-link to="/projects"
+              class="flex items-center gap-1 text-xs font-medium text-[var(--dp-accent)] hover:opacity-80 transition-opacity">
+              View all
+              <ArrowRight :size="12" />
+            </router-link>
+          </div>
+
+          <div v-if="!projectStore.loaded" class="divide-y divide-[var(--dp-rule)]">
+            <div v-for="i in 4" :key="i" class="h-16 px-5 flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-[var(--dp-surface-2)] animate-pulse shrink-0" />
+              <div class="h-3.5 w-40 rounded bg-[var(--dp-surface-2)] animate-pulse" />
+            </div>
+          </div>
+
+          <div v-else-if="!topProjects.length" class="flex flex-col items-center justify-center py-16 text-center">
+            <p class="text-sm text-[var(--dp-ink)] font-medium">No projects yet</p>
+            <router-link to="/projects" class="text-xs text-[var(--dp-accent)] hover:opacity-80 transition-opacity mt-1">
+              Create your first project
+            </router-link>
+          </div>
+
+          <div v-else class="divide-y divide-[var(--dp-rule)]">
+            <router-link
+              v-for="p in topProjects"
+              :key="p.id"
+              :to="`/projects/${p.id}/issues`"
+              class="flex items-center gap-3 px-5 py-3.5 hover:bg-[var(--dp-surface-2)]/40 transition-colors"
+            >
+              <img :src="platformIcon(p.platform)" :alt="p.platform" class="w-8 h-8 rounded-full shrink-0" />
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium text-[var(--dp-ink)] truncate">{{ p.name }}</p>
+                <p class="text-xs text-[var(--dp-ink-3)] capitalize">{{ p.platform }}</p>
+              </div>
+              <span v-if="health[p.id]?.total > 0"
+                class="dp-mono inline-flex items-center gap-1 text-[12px] font-medium text-[var(--dp-danger)] bg-[var(--dp-danger-soft)] px-2 py-0.5 rounded-full tabular-nums shrink-0">
+                ▲ {{ health[p.id].total }}
+              </span>
+              <span v-else class="dp-mono text-[12px] text-[var(--dp-ink-3)] tabular-nums shrink-0">quiet</span>
+            </router-link>
+          </div>
         </div>
 
-        <!-- Time range selector using shadcn Select -->
-        <Select v-model="range">
-          <SelectTrigger class="w-36 rounded-md bg-[var(--dp-surface)] border-[var(--dp-rule)] text-[var(--dp-ink)] text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent class="bg-[var(--dp-surface)] border-[var(--dp-rule)] text-[var(--dp-ink)]">
-            <SelectItem value="14" class="focus:bg-[var(--dp-accent-soft)] focus:text-[var(--dp-accent)] [&_svg]:text-[var(--dp-ink-3)]">Last 14 days</SelectItem>
-            <SelectItem value="7" class="focus:bg-[var(--dp-accent-soft)] focus:text-[var(--dp-accent)] [&_svg]:text-[var(--dp-ink-3)]">Last 7 days</SelectItem>
-            <SelectItem value="30" class="focus:bg-[var(--dp-accent-soft)] focus:text-[var(--dp-accent)] [&_svg]:text-[var(--dp-ink-3)]">Last 30 days</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        <!-- Recent Activity -->
+        <div class="lg:col-span-4 rounded-2xl border border-[var(--dp-rule)] bg-[var(--dp-surface)] overflow-hidden">
+          <div class="px-5 py-4 border-b border-[var(--dp-rule)]">
+            <h2 class="text-[15px] font-semibold text-[var(--dp-ink)]">Recent activity</h2>
+            <p class="text-xs text-[var(--dp-ink-2)] mt-0.5">Live, as events come in</p>
+          </div>
 
-      <!-- Briefing lead: lead metric + supporting stats, hairline-framed, no shadow -->
-      <Card class="rounded-md shadow-none px-0 py-0 gap-0 bg-[var(--dp-surface)] text-[var(--dp-ink)] border-[var(--dp-rule)]">
-        <template v-if="loading">
-          <div class="flex flex-col lg:flex-row">
-            <div class="flex-1 lg:max-w-[58%] p-6 lg:p-8 space-y-3">
-              <Skeleton class="h-3 w-20" />
-              <Skeleton class="h-16 w-48" />
-              <Skeleton class="h-3 w-64" />
-            </div>
-            <div class="flex-1 grid grid-cols-3 lg:grid-cols-1">
-              <Skeleton v-for="i in 3" :key="i" class="h-16 m-4 rounded-md" />
+          <div v-if="!issuesStore.live.length" class="flex flex-col items-center justify-center py-16 text-center px-5">
+            <Activity :size="20" class="text-[var(--dp-ink-3)] mb-2" />
+            <p class="text-sm text-[var(--dp-ink-2)]">No recent activity yet</p>
+            <p class="text-xs text-[var(--dp-ink-3)] mt-1">New events will appear here in real time.</p>
+          </div>
+
+          <div v-else class="divide-y divide-[var(--dp-rule)] max-h-[26rem] overflow-y-auto">
+            <div v-for="event in issuesStore.live" :key="`${event.issue_id}-${event.ts}`" class="px-5 py-3">
+              <div class="flex items-center gap-2 mb-1">
+                <span :class="levelDot(event.level)" class="w-1.5 h-1.5 rounded-full shrink-0" />
+                <span class="text-[11px] text-[var(--dp-ink-3)] truncate">{{ projectName(event.project_id) }}</span>
+                <span v-if="event.is_regression" class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide bg-orange-500/10 text-orange-700 shrink-0">
+                  Regression
+                </span>
+                <span class="dp-mono text-[10px] text-[var(--dp-ink-3)] tabular-nums ml-auto shrink-0">{{ timeAgo(event.ts) }}</span>
+              </div>
+              <p class="text-[13px] text-[var(--dp-ink)] truncate">{{ event.title }}</p>
             </div>
           </div>
-        </template>
-
-        <template v-else>
-          <div class="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-[var(--dp-rule)]">
-
-            <!-- Lead metric: unresolved issues -->
-            <div class="flex-1 lg:max-w-[58%] p-6 lg:p-8 flex flex-col justify-center gap-2">
-              <p class="text-[11px] uppercase tracking-[0.14em] text-[var(--dp-ink-2)] font-medium">Unresolved</p>
-              <p class="dv-mono tabular-nums text-[var(--dp-danger)] leading-none font-medium"
-                style="font-size: clamp(3rem, 3.2vw + 1.75rem, 5.5rem)">
-                {{ heroDisplay }}
-              </p>
-              <p class="text-sm text-[var(--dp-ink-2)] max-w-sm">
-                open issues across every project you're tracking — investigate before they age.
-              </p>
-            </div>
-
-            <!-- Supporting stats -->
-            <div class="flex-1 grid grid-cols-3 lg:grid-cols-1 divide-x lg:divide-x-0 lg:divide-y divide-[var(--dp-rule)]">
-              <div
-                v-for="s in secondaryStats" :key="s.key"
-                class="p-5 lg:px-8 lg:py-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-1.5"
-              >
-                <span class="text-[11px] uppercase tracking-widest text-[var(--dp-ink-2)] font-medium">{{ s.label }}</span>
-                <span class="dv-mono tabular-nums text-xl lg:text-2xl font-medium" :class="s.color">{{ s.display }}</span>
-              </div>
-            </div>
-          </div>
-        </template>
-      </Card>
-
-      <!-- Charts — row 1: timeline (wide) + level breakdown (narrow) -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-
-        <Card class="lg:col-span-8 rounded-md shadow-none px-6 py-5 gap-4 bg-[var(--dp-surface)] text-[var(--dp-ink)] border-[var(--dp-rule)]">
-          <CardHeader class="p-0">
-            <CardTitle class="dv-display text-[15px] font-semibold text-[var(--dp-ink)]">Activity timeline</CardTitle>
-            <CardDescription class="text-[var(--dp-ink-2)]">Events ingested and new issues opened per day</CardDescription>
-          </CardHeader>
-          <CardContent class="p-0">
-            <Skeleton v-if="loading" class="h-56 w-full rounded-md" />
-            <div v-else class="h-56">
-              <Line :data="lineChartData" :options="lineChartOptions" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card class="lg:col-span-4 rounded-md shadow-none px-6 py-5 gap-4 bg-[var(--dp-surface)] text-[var(--dp-ink)] border-[var(--dp-rule)]">
-          <CardHeader class="p-0">
-            <CardTitle class="dv-display text-[15px] font-semibold text-[var(--dp-ink)]">Issues by level</CardTitle>
-            <CardDescription class="text-[var(--dp-ink-2)]">Unresolved issues breakdown</CardDescription>
-          </CardHeader>
-          <CardContent class="p-0 flex flex-col items-center gap-4">
-            <Skeleton v-if="loading" class="h-40 w-40 rounded-full" />
-            <template v-else>
-              <div class="h-44 w-44">
-                <Doughnut :data="levelDoughnutData" :options="doughnutOptions" />
-              </div>
-              <div class="flex flex-col gap-1.5 w-full">
-                <div v-for="item in levelItems" :key="item.label"
-                  class="flex items-center justify-between text-xs">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-sm shrink-0" :style="{ background: item.color }" />
-                    <span class="text-[var(--dp-ink-2)] capitalize">{{ item.label }}</span>
-                  </div>
-                  <span class="dv-mono font-medium text-[var(--dp-ink)] tabular-nums">{{ item.count }}</span>
-                </div>
-              </div>
-            </template>
-          </CardContent>
-        </Card>
-      </div>
-
-      <!-- Charts — row 2: status breakdown (narrow, left this time) + top projects (wide) -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-
-        <Card class="lg:col-span-4 rounded-md shadow-none px-6 py-5 gap-4 bg-[var(--dp-surface)] text-[var(--dp-ink)] border-[var(--dp-rule)]">
-          <CardHeader class="p-0">
-            <CardTitle class="dv-display text-[15px] font-semibold text-[var(--dp-ink)]">Issue status</CardTitle>
-            <CardDescription class="text-[var(--dp-ink-2)]">Distribution across all projects</CardDescription>
-          </CardHeader>
-          <CardContent class="p-0 flex flex-col items-center gap-4">
-            <Skeleton v-if="loading" class="h-40 w-40 rounded-full" />
-            <template v-else>
-              <div class="h-44 w-44">
-                <Doughnut :data="statusDoughnutData" :options="doughnutOptions" />
-              </div>
-              <div class="flex flex-col gap-1.5 w-full">
-                <div v-for="item in statusItems" :key="item.label"
-                  class="flex items-center justify-between text-xs">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-sm shrink-0" :style="{ background: item.color }" />
-                    <span class="text-[var(--dp-ink-2)] capitalize">{{ item.label }}</span>
-                  </div>
-                  <span class="dv-mono font-medium text-[var(--dp-ink)] tabular-nums">{{ item.count }}</span>
-                </div>
-              </div>
-            </template>
-          </CardContent>
-        </Card>
-
-        <Card class="lg:col-span-8 rounded-md shadow-none px-6 py-5 gap-4 bg-[var(--dp-surface)] text-[var(--dp-ink)] border-[var(--dp-rule)]">
-          <CardHeader class="p-0">
-            <CardTitle class="dv-display text-[15px] font-semibold text-[var(--dp-ink)]">Top projects</CardTitle>
-            <CardDescription class="text-[var(--dp-ink-2)]">Event volume by project over the last 7 days</CardDescription>
-          </CardHeader>
-          <CardContent class="p-0">
-            <Skeleton v-if="loading" class="h-48 w-full rounded-md" />
-            <div v-else-if="!chartData?.top_projects?.length"
-              class="h-48 flex items-center justify-center text-sm text-[var(--dp-ink-2)]">
-              No event data yet
-            </div>
-            <div v-else class="h-48">
-              <Bar :data="barChartData" :options="barChartOptions" />
-            </div>
-          </CardContent>
-        </Card>
+        </div>
       </div>
 
     </div>
@@ -159,313 +110,93 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive } from 'vue'
 import axios from 'axios'
-import {
-  Chart as ChartJS,
-  CategoryScale, LinearScale,
-  PointElement, LineElement,
-  BarElement, ArcElement,
-  Tooltip, Legend, Filler,
-} from 'chart.js'
-import { Line, Doughnut, Bar } from 'vue-chartjs'
+import { AlertCircle, Sparkles, RotateCcw, Activity, ArrowRight } from 'lucide-vue-next'
+import { useProjectStore } from '../stores/project'
+import { useIssuesStore } from '../stores/issues'
+import { platformIcon } from '../composables/useColors'
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Skeleton } from '@/components/ui/skeleton'
+const projectStore = useProjectStore()
+const issuesStore  = useIssuesStore()
 
-// ── Chart.js registration ────────────────────────────────────────────────────
-ChartJS.register(
-  CategoryScale, LinearScale,
-  PointElement, LineElement,
-  BarElement, ArcElement,
-  Tooltip, Legend, Filler,
+const stats = computed(() => issuesStore.stats)
+
+const statCards = computed(() => {
+  if (!stats.value) return []
+  return [
+    { key: 'unresolved', label: 'Unresolved', icon: AlertCircle, color: 'text-[var(--dp-danger)]',
+      value: stats.value.issues.unresolved, story: 'Open issues waiting on a fix across every project.' },
+    { key: 'new24h', label: 'New 24h', icon: Sparkles, color: 'text-amber-600',
+      value: stats.value.issues.new_24h, story: 'First-seen issues in the last day.' },
+    { key: 'regressions', label: 'Regressions', icon: RotateCcw, color: 'text-orange-600',
+      value: stats.value.issues.regressions_24h, story: 'Previously resolved issues that came back.' },
+    { key: 'events24h', label: 'Events 24h', icon: Activity, color: 'text-[var(--dp-accent)]',
+      value: stats.value.events_24h, story: 'Total error events ingested in the last day.' },
+  ]
+})
+
+// ── Per-project health (unresolved count) — same lightweight check ProjectsView
+// uses: total = unresolved count from /api/issues?limit=1, no backend changes.
+const health = reactive({})
+
+async function loadHealth(projects) {
+  await Promise.all(projects.map(async (p) => {
+    health[p.id] = { state: 'loading' }
+    try {
+      const { data } = await axios.get('/api/issues', { params: { project_id: p.id, limit: 1 } })
+      health[p.id] = { state: 'done', total: data.total ?? 0, lastSeen: data.data?.[0]?.last_seen ?? null }
+    } catch {
+      health[p.id] = { state: 'error' }
+    }
+  }))
+}
+
+const topProjects = computed(() =>
+  [...projectStore.projects]
+    .sort((a, b) => (health[b.id]?.total ?? 0) - (health[a.id]?.total ?? 0))
+    .slice(0, 5)
 )
 
-// ── State ────────────────────────────────────────────────────────────────────
-const loading   = ref(true)
-const stats     = ref(null)
-const chartData = ref(null)
-const range     = ref('14')
-
-// ── Number-reveal count-up (hero + supporting stats) ────────────────────────
-const prefersReducedMotion = typeof window !== 'undefined'
-  && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-const counts = reactive({ unresolved: 0, new24h: 0, regressions: 0, events: 0 })
-
-function animateNumber(setter, target, duration = 700) {
-  if (prefersReducedMotion || !target) { setter(target || 0); return }
-  const start = performance.now()
-  function frame(now) {
-    const t = Math.min(1, (now - start) / duration)
-    const eased = 1 - Math.pow(1 - t, 3) // matches --ease-out
-    setter(target * eased)
-    if (t < 1) requestAnimationFrame(frame)
-    else setter(target)
-  }
-  requestAnimationFrame(frame)
+function projectName(projectId) {
+  return projectStore.projects.find(p => p.id === projectId)?.name ?? 'Unknown project'
 }
 
-function triggerCountUp() {
-  if (!stats.value) return
-  animateNumber(v => (counts.unresolved  = v), stats.value.issues?.unresolved ?? 0, 900)
-  animateNumber(v => (counts.new24h      = v), stats.value.issues?.new_24h ?? 0, 700)
-  animateNumber(v => (counts.regressions = v), stats.value.issues?.regressions_24h ?? 0, 700)
-  animateNumber(v => (counts.events      = v), stats.value.events_24h ?? 0, 700)
+const levelDot = (level) =>
+  ({ error: 'bg-red-500', warning: 'bg-amber-500', info: 'bg-blue-500' })[level] ?? 'bg-gray-400'
+
+function timeAgo(ts) {
+  const s = (Date.now() - ts) / 1000
+  if (s < 60)    return 'just now'
+  if (s < 3600)  return `${Math.floor(s / 60)}m ago`
+  return `${Math.floor(s / 3600)}h ago`
 }
 
-const heroDisplay = computed(() => Math.round(counts.unresolved).toLocaleString())
-
-const secondaryStats = computed(() => [
-  { key: 'new24h',      label: 'New 24h',      display: Math.round(counts.new24h).toLocaleString(),      color: 'text-amber-600'  },
-  { key: 'regressions', label: 'Regressions',  display: Math.round(counts.regressions).toLocaleString(), color: 'text-orange-600' },
-  { key: 'events',      label: 'Events 24h',   display: Math.round(counts.events).toLocaleString(),      color: 'text-[var(--dp-accent)]' },
-])
-
-// ── Data fetching ────────────────────────────────────────────────────────────
 onMounted(async () => {
-  const [statsRes, chartRes] = await Promise.all([
-    axios.get('/api/stats').catch(() => null),
-    axios.get('/api/stats/chart').catch(() => null),
-  ])
-  stats.value     = statsRes?.data ?? null
-  chartData.value = chartRes?.data ?? null
-  loading.value   = false
-  triggerCountUp()
+  issuesStore.fetchStats()
+  try {
+    await projectStore.load()
+    loadHealth(projectStore.projects)
+  } catch { /* projects list failed to load — snapshot stays empty, no invented rows */ }
 })
-
-// ── Shared Chart.js theme (light canvas) ─────────────────────────────────────
-const FONT_MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, monospace"
-
-const C = {
-  // Brand series — oxblood/wine, mirrors --dp-accent (Chart.js can't read oklch())
-  violet:  '#6b2b35',
-  violetA: 'rgba(107,43,53,0.14)',
-  red:     '#dc2626',
-  redA:    'rgba(220,38,38,0.12)',
-  amber:   '#d97706',
-  emerald: '#059669',
-  blue:    '#2563eb',
-  gray:    '#9ca3af',
-  // Grid/ticks sit directly on the light card surface now, warm-neutral tuned
-  gridLine: 'rgba(40, 32, 26, 0.08)',
-  tickText: '#7a7168',
-  // Tooltip stays a dark floating chip — pops regardless of page theme,
-  // mirrors --dp-elevated-* (see design.md)
-  tooltipBg:     '#221c19',
-  tooltipBorder: 'rgba(255,255,255,0.08)',
-  tooltipTitle:  '#f5f0ec',
-  tooltipBody:   '#c9beb4',
-}
-
-const baseChartOptions = {
-  responsive:          true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      backgroundColor: C.tooltipBg,
-      borderColor:     C.tooltipBorder,
-      borderWidth:     1,
-      titleColor:      C.tooltipTitle,
-      titleFont:       { family: FONT_MONO, size: 11 },
-      bodyColor:       C.tooltipBody,
-      bodyFont:        { family: FONT_MONO, size: 11 },
-      padding:         10,
-      cornerRadius:    6,
-    },
-  },
-}
-
-// ── Line chart: events + new issues per day ───────────────────────────────────
-const lineChartData = computed(() => {
-  const eventsMap = Object.fromEntries(
-    (chartData.value?.events_by_day ?? []).map(d => [d.day, d.count])
-  )
-  const issuesMap = Object.fromEntries(
-    (chartData.value?.issues_by_day ?? []).map(d => [d.day, d.count])
-  )
-
-  const days = last14Days()
-  return {
-    labels: days.map(d => fmtDay(d)),
-    datasets: [
-      {
-        label:           'Events',
-        data:            days.map(d => eventsMap[d] ?? 0),
-        borderColor:     C.violet,
-        backgroundColor: C.violetA,
-        borderWidth:     2,
-        pointRadius:     3,
-        pointHoverRadius: 5,
-        fill:            true,
-        tension:         0.35,
-      },
-      {
-        label:           'New Issues',
-        data:            days.map(d => issuesMap[d] ?? 0),
-        borderColor:     C.red,
-        backgroundColor: C.redA,
-        borderWidth:     2,
-        pointRadius:     3,
-        pointHoverRadius: 5,
-        fill:            true,
-        tension:         0.35,
-      },
-    ],
-  }
-})
-
-const lineChartOptions = {
-  ...baseChartOptions,
-  plugins: {
-    ...baseChartOptions.plugins,
-    legend: {
-      display:  true,
-      position: 'top',
-      align:    'end',
-      labels: {
-        color:       C.tickText,
-        boxWidth:    10,
-        boxHeight:   10,
-        borderRadius: 3,
-        usePointStyle: false,
-        font: { family: FONT_MONO, size: 11 },
-        padding: 16,
-      },
-    },
-  },
-  scales: {
-    x: {
-      grid:  { color: C.gridLine },
-      ticks: { color: C.tickText, font: { family: FONT_MONO, size: 11 }, maxRotation: 0 },
-    },
-    y: {
-      grid:  { color: C.gridLine },
-      ticks: { color: C.tickText, font: { family: FONT_MONO, size: 11 }, precision: 0 },
-      beginAtZero: true,
-    },
-  },
-}
-
-// ── Doughnut: issues by level ────────────────────────────────────────────────
-const LEVEL_COLORS = { error: C.red, warning: C.amber, info: C.blue }
-
-const levelItems = computed(() => {
-  const rows = chartData.value?.by_level ?? []
-  return ['error', 'warning', 'info'].map(lvl => ({
-    label: lvl,
-    count: rows.find(r => r.level === lvl)?.count ?? 0,
-    color: LEVEL_COLORS[lvl] ?? C.gray,
-  }))
-})
-
-const levelDoughnutData = computed(() => ({
-  labels:   levelItems.value.map(i => i.label),
-  datasets: [{
-    data:            levelItems.value.map(i => i.count),
-    backgroundColor: levelItems.value.map(i => i.color),
-    borderWidth:     0,
-    hoverOffset:     4,
-  }],
-}))
-
-// ── Bar chart: top projects ───────────────────────────────────────────────────
-const barChartData = computed(() => {
-  const projects = chartData.value?.top_projects ?? []
-  return {
-    labels: projects.map(p => p.name),
-    datasets: [{
-      label:           'Events (7d)',
-      data:            projects.map(p => p.count),
-      backgroundColor: C.violet,
-      hoverBackgroundColor: '#551f27',
-      borderRadius:    6,
-      borderSkipped:   false,
-    }],
-  }
-})
-
-const barChartOptions = {
-  ...baseChartOptions,
-  scales: {
-    x: {
-      grid:  { display: false },
-      ticks: { color: C.tickText, font: { family: FONT_MONO, size: 11 } },
-    },
-    y: {
-      grid:  { color: C.gridLine },
-      ticks: { color: C.tickText, font: { family: FONT_MONO, size: 11 }, precision: 0 },
-      beginAtZero: true,
-    },
-  },
-}
-
-// ── Doughnut: issues by status ───────────────────────────────────────────────
-const STATUS_COLORS = { unresolved: C.red, resolved: C.emerald, ignored: C.gray }
-
-const statusItems = computed(() => {
-  const rows = chartData.value?.by_status ?? []
-  return ['unresolved', 'resolved', 'ignored'].map(s => ({
-    label: s,
-    count: rows.find(r => r.status === s)?.count ?? 0,
-    color: STATUS_COLORS[s] ?? C.gray,
-  }))
-})
-
-const statusDoughnutData = computed(() => ({
-  labels:   statusItems.value.map(i => i.label),
-  datasets: [{
-    data:            statusItems.value.map(i => i.count),
-    backgroundColor: statusItems.value.map(i => i.color),
-    borderWidth:     0,
-    hoverOffset:     4,
-  }],
-}))
-
-// ── Shared doughnut options ──────────────────────────────────────────────────
-const doughnutOptions = {
-  ...baseChartOptions,
-  cutout: '68%',
-}
-
-// ── Date helpers ─────────────────────────────────────────────────────────────
-function last14Days() {
-  const days = []
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    days.push(d.toISOString().slice(0, 10))
-  }
-  return days
-}
-
-function fmtDay(iso) {
-  const d = new Date(iso + 'T00:00:00')
-  return d.toLocaleDateString('en', { month: 'short', day: 'numeric' })
-}
 </script>
 
 <style scoped>
-/* Hallmark · macrostructure: Briefing (was Stat-Led instrument panel) · genre: modern-minimal (formal/exclusive)
- * theme: DevPulse locked system (design.md) — formal white workspace, oxblood accent
- * display: Fraunces · body: Geist · outlier(mono): JetBrains Mono
- * motion: number-reveal count-up only · nav/footer: owned by App.vue (out of scope)
- * hairline-framed exhibits, no card shadow — see design.md § Macrostructure family
+/* Hallmark · macrostructure: landing/overview (distinct from Analytics' chart
+ * briefing and Projects' boxed table) · genre: modern-minimal (clean/formal)
+ * theme: DevPulse locked system (design.md) — slate/maroon workspace
+ * body: Inter · outlier(mono): JetBrains Mono
+ * stat bento (shared language with Issues) + projects snapshot + live
+ * recent-activity feed sourced straight from the existing WS event stream —
+ * no invented metrics, see design.md § Data honesty
  */
-.dashboard-root {
+.home-root {
   background: var(--dp-paper);
   font-family: var(--dp-font-body);
   color: var(--dp-ink);
 }
 
-.dv-display {
-  font-family: var(--dp-font-display);
-  letter-spacing: -0.01em;
-}
-
-.dv-mono {
+.dp-mono {
   font-family: var(--dp-font-mono);
   font-variant-numeric: tabular-nums;
 }

@@ -6,110 +6,110 @@ system needs to grow.
 
 ## Genre
 
-modern-minimal, dialed toward **luxury/formal** — restraint over density,
-generous whitespace, hairline rules over boxed panels, quiet typography over
-loud badges. This is the second full pass on the system (see Migration
-history): the violet/instrument-panel register is retired in favour of an
-exclusive, market-ready white register aimed at a paying enterprise audience,
-not just an internal engineering console.
+modern-minimal, clean/formal enterprise app-shell — quiet neutrals, a single
+confident accent, boxed rounded surfaces over hairline-on-paper rows. This is
+the third full pass on the system (see Migration history): the oxblood/serif
+"exclusive ledger" register is retired in favour of a clean slate/indigo
+system, explicitly modeled on the **teleradiology** project's app-shell
+(read-only design reference — never edited) as the reference DNA: its
+`DashboardSidebar.vue`, `DataTable.vue`, and list-page pattern
+(`Radiologists/Index.vue`, `Admin/ActivityLog/Index.vue`).
 
 ## App shell
 
-N3 side-rail (`src/App.vue`): white rail (w-56, sticky, full-height,
-`--dp-surface` on hairline `--dp-rule` border) with a serif wordmark, Projects
-+ Analytics nav, live-WS status, sign out. Active nav state is a **quiet left
-tick** (2px accent bar + ink text) rather than a filled pill — a filled active
-pill reads casual/startup; a tick reads like a ledger index. Collapses to a
-light top bar below `lg`.
+Floating rounded rail (`src/App.vue`): a `rounded-2xl` sidebar inset from the
+edge (`inset-y-4 left-4`), translucent white with `backdrop-blur`, hairline
+border + soft shadow — not a flush full-height panel. Collapsible (`w-64` ↔
+`w-20`, circular chevron toggle), auto-collapses below `lg`. Active nav state
+is a **quiet filled pill** (`bg-[var(--dp-accent-soft)]` + accent text) rather
+than a left tick — matches the reference's rounded, boxed language instead of
+the previous ledger-index tick. Collapses to a light top bar below `lg`.
 
 ## Macrostructure family
 
-Layout changed app-wide, not just re-skinned. Every page-type gets a distinct,
-named shape — still grouped by page type, per the multi-page discipline:
+Every page-type keeps its own shape, but all now converge on the reference's
+**boxed rounded surface** language instead of bare hairline-on-paper rows:
 
-- **App pages (Projects, Issues) — Ledger Row.** Dropped the bordered/boxed
-  console panel. Rows sit directly on the page paper, separated only by
-  hairline dividers; the "panel" is implied by a top rule + quiet small-caps
-  column heads, not a drawn box. Entry names set in the display serif at a
-  larger size than before; figures stay right-aligned mono. Generous row
-  height (py-5, was py-4) — a formal register needs room to breathe.
-- **Analytics — Briefing.** Retired the instrument-panel stat grid in favour
-  of a report-style read: one large serif-scale lead metric (the *number*
-  itself stays mono per the numerals rule below, but it now sits inside an
-  editorial header block, not a bordered instrument card), a quiet
-  label:value strip for supporting stats (no boxed tiles), and charts framed
-  as **exhibits** — hairline-bordered, captioned below in small text, no
-  card shadow.
-- **Releases — Dossier Timeline.** Timeline retained (it is structurally
-  correct for release history) but reframed: thinner hairline spine, record
-  cards with serif version headings, quieter single-line issue-stat chips
-  instead of three loud colored pills.
-- **IssueDetails — dense technical readout, exhibit-framed.** Still body +
-  mono only — a stack trace has no use for a display face, and a formal tone
-  doesn't mean airier code. Only the chrome around the trace changes: panels
-  adopt the same hairline "exhibit" language as Analytics/Releases instead of
-  boxed-card-with-shadow, for cross-page consistency.
-- **Login — matches the shell.** Previously a standalone hardcoded dark
-  screen; now built from the same tokens as everything else. First thing a
-  buyer sees — it must not contradict "exclusive/formal."
+- **App pages (Projects, Issues) — boxed table.** Rows live inside a single
+  `rounded-2xl border border-[var(--dp-rule)]` container with a washed header
+  row (`bg-[var(--dp-surface-2)]/60`) and `divide-y` hairlines between rows —
+  matches the reference `DataTable.vue` exactly. Dropped the display/serif
+  entry-name treatment; names are plain `font-medium` body text, same voice as
+  everything else on the page.
+- **Analytics — Bento-adjacent briefing.** Stat strip + charts framed as
+  rounded-2xl hairline-bordered panels (was: hairline "exhibit" strips with no
+  box) — a quiet wash header, no card shadow, numerals stay mono.
+- **Releases — Dossier Timeline.** Timeline retained (structurally correct for
+  release history); record cards now sit in `rounded-2xl` bordered panels
+  instead of a bare hairline spine card, headings in plain semibold body type.
+- **IssueDetails — dense technical readout.** Still body + mono only. Panels
+  now use the same `rounded-2xl` bordered-box language as every other page for
+  cross-page consistency (previously hairline "exhibit" strips).
+- **Login — matches the shell, keeps the one display-font moment.** The only
+  page that still sets `--dp-font-display` (Space Grotesk) on its headline —
+  mirrors the reference, where auth pages alone get a display treatment and
+  every in-app page stays body-only.
 
 ## Theme
 
-Anchor moved off violet (281°) to a warm near-neutral white paired with a
-single **oxblood/wine accent** — reads formal and exclusive rather than
-startup SaaS blue/violet. Tokens in `src/tokens.css`:
+Anchor moved off oxblood/wine (15°) to **slate neutrals + a confident indigo
+accent** (256°) — the reference's exact hue family, ported into this app's
+existing `--dp-*` token names so page markup didn't need literal-class
+rewrites everywhere. Tokens in `src/tokens.css`:
 
-- `--dp-paper`        oklch(98.2% 0.004 55)  — page background, soft warm white
-- `--dp-surface`      oklch(99.4% 0.002 55)  — card/row surface, brighter than paper
-- `--dp-surface-2`    oklch(95%   0.008 55)  — wash: header rows, hover, zebra
-- `--dp-ink`          oklch(20%   0.014 40)  — near-black warm ink
-- `--dp-ink-2`        oklch(42%   0.010 40)
-- `--dp-ink-3`        oklch(58%   0.008 40)
-- `--dp-rule`         oklch(89%   0.006 55)  — hairline
-- `--dp-accent`       oklch(33%   0.135 15)  — oxblood/wine
-- `--dp-accent-hover` oklch(28%   0.13  15)
-- `--dp-accent-soft`  oklch(94%   0.02  15)
-- `--dp-danger`       oklch(51%   0.19  25)  — kept a true red, distinct from accent by
-  lightness + chroma so "danger" never reads as "brand"
-- `--dp-danger-soft`  oklch(96%   0.02  25)
-- `--dp-ok`           oklch(48%   0.11  155) — muted forest, less candy than before
+- `--dp-paper`        oklch(98.5% 0.004 250)  — page background, cool near-white
+- `--dp-surface`      oklch(100%  0     0)    — card/row surface, true white
+- `--dp-surface-2`    oklch(96.5% 0.008 250)  — wash: header rows, hover, shell bg
+- `--dp-ink`          oklch(22%   0.022 258)  — near-black cool ink (slate-900)
+- `--dp-ink-2`        oklch(34%   0.018 257)  (slate-600)
+- `--dp-ink-3`        oklch(48%   0.014 256)  (slate-500)
+- `--dp-rule`         oklch(86%   0.012 252)  — hairline (slate-200)
+- `--dp-accent`       oklch(58%   0.2   256)  — indigo-600
+- `--dp-accent-hover` oklch(53%   0.2   256)  — indigo-500/600
+- `--dp-accent-soft`  oklch(93%   0.03  256)  — indigo-50/100 wash (active nav, avatar chips)
+- `--dp-danger`       oklch(58%   0.2   25)   — red-600, unchanged in spirit
+- `--dp-danger-soft`  oklch(96%   0.03  25)
+- `--dp-ok`           oklch(56%   0.14  158)  — emerald-600
 
 Elevated-dark surfaces (toast stack, chart tooltip) stay dark on purpose — an
 elevated dark chip over a light page reads as intentional, not inconsistent —
-but are now warm-neutral-tuned instead of violet-tuned:
+now slate-tuned instead of warm-neutral-tuned:
 `--dp-elevated-bg`, `--dp-elevated-border`, `--dp-elevated-title`,
 `--dp-elevated-body`.
 
 Chart.js can't consume `oklch()`, so `DashboardView.vue` keeps a small
 hex-equivalent `C` constant mirroring these tokens for canvas rendering.
 Semantic status colors (error/warning/info, priority, environment, plugin
-type, HTTP method) are **unchanged** — they're functional, not brand, and
-already read restrained (`-700` text on `/10` washes).
+type, HTTP method) are **unchanged** — they're functional, not brand.
 
 ## Typography
 
-- Display: **Fraunces** 500–600, roman only (`--dp-font-display`) — the
-  single biggest lever for "formal/exclusive"; replaces Space Grotesk's
-  techy-geometric voice with an editorial serif.
-- Body: **Geist** 400–600 (`--dp-font-body`) — kept; already neutral and
-  professional, no reason to churn it.
+- Body: **Inter** 400–700 (`--dp-font-body`) — the primary voice everywhere in
+  the app shell, matching the reference's app-shell pages exactly (no serif,
+  no display face on headings — `text-2xl font-semibold tracking-tight` is
+  the whole recipe).
+- Display: **Space Grotesk** 500–700 (`--dp-font-display`) — reserved for
+  Login only, mirroring the reference's own split (auth screens get a display
+  moment, in-app CRUD/list pages never do).
 - Mono outlier: **JetBrains Mono** — kept; all numerals/counts/DSNs/chart
-  ticks, `tabular-nums`. A lead metric or ledger figure is still always mono,
-  even inside an otherwise-serif page — precision voice doesn't change.
+  ticks, `tabular-nums`.
 - Loaded once via `src/tokens.css` Google Fonts import. Never import fonts
   per-view.
 
-## Spacing
+## Spacing & shape
 
-Tailwind 4-pt utilities, slightly more generous than before: page gutter
-`px-6`, page block `py-10`–`py-12`, ledger row `py-5`, content column
-`max-w-5xl`–`max-w-6xl mx-auto`.
+Tailwind 4-pt utilities, page gutter `px-6`, page block `py-6`–`py-10`. Radius
+scale bumped rounder across the board to match the reference: inputs/buttons
+`rounded-xl` (was `rounded-md`), modals/boxed panels/tables `rounded-2xl` (was
+`rounded-md`/`rounded-lg`), icon-only action buttons `rounded-lg`, avatars/
+pills stay `rounded-full`.
 
 ## Motion
 
-Motion-cut project — unchanged, and it already fit "formal": the single
-sanctioned primitive is the number-reveal count-up on Analytics stats. No
-scroll reveals, no hover lifts. `prefers-reduced-motion` collapses everything.
+Motion-cut project — unchanged. The single sanctioned primitive is the
+number-reveal count-up on Analytics stats, plus the sidebar's width/opacity
+transition on collapse (matches the reference's own sidebar transition). No
+scroll reveals, no hover lifts beyond simple color transitions.
 Easings: `--dp-ease-out` cubic-bezier(0.16, 1, 0.3, 1) · `--dp-ease-in`
 cubic-bezier(0.7, 0, 0.84, 0).
 
@@ -122,10 +122,8 @@ cubic-bezier(0.7, 0, 0.84, 0).
 
 ## CTA voice
 
-- Primary: oxblood **`rounded-md`** fill (was `rounded-full` pill — a pill
-  reads casual/startup; `rounded-md` reads formal). White text,
-  `hover:--dp-accent-hover`, `active:translate-y-px`.
-- Secondary: `--dp-surface-2` fill, `--dp-ink-2` text, `rounded-md`.
+- Primary: indigo **`rounded-xl`** fill, white text, `hover:--dp-accent-hover`.
+- Secondary: `--dp-surface-2` fill, `--dp-ink-2` text, `rounded-xl`.
 - Destructive: red-600 fill, only inside confirm dialogs.
 
 ## Data honesty
@@ -136,28 +134,34 @@ invented numbers; loading = pulse block, error = "—".
 
 ## What pages MUST share
 
-- The white rail shell, serif wordmark, and oxblood accent (≤ 5% of viewport)
-- The three-font system and mono-for-numerals rule
-- CTA voice (`rounded-md`, not pill) and focus treatment
-- Hairline-rule discipline over boxed/shadowed panels
+- The floating rounded sidebar shell and indigo accent
+- Inter as the only in-app-shell font (mono for numerals); Space Grotesk
+  confined to Login
+- CTA voice (`rounded-xl` fill) and focus treatment
+- Boxed `rounded-2xl` hairline-bordered surfaces over bare hairline-on-paper
+  rows
 
 ## What pages MAY differ on
 
-- Panel composition (ledger row vs briefing vs dossier timeline vs technical
+- Panel composition (boxed table vs briefing vs dossier timeline vs technical
   readout)
-- Whether a display face is used at all (IssueDetails skips it — see above)
+- Whether Login's display face applies (it never does elsewhere)
 
 ## Migration history
 
 - Violet/instrument-panel light system — 2026-07-04 (first light pages,
   established `--dp-*` tokens, full app migrated off dark)
-- **Formal/exclusive white re-theme + full layout pass — 2026-08-21**
-  (this pass): retired violet 281° for an oxblood/wine anchor, Space Grotesk
-  → Fraunces for display, `rounded-full` CTAs → `rounded-md`, boxed
-  console/instrument panels → hairline ledger/briefing/dossier/exhibit
-  layouts across all five views + shell + Login (Login rebuilt from a
-  standalone hardcoded dark screen onto the shared system for the first
-  time).
+- Formal/exclusive white re-theme + full layout pass — 2026-08-21 (oxblood
+  accent, Fraunces display, hairline ledger/briefing/dossier/exhibit layouts,
+  Login rebuilt onto the shared system)
+- **Slate/indigo re-theme, teleradiology reference — 2026-08-21** (this
+  pass): retired oxblood 15° for an indigo 256° accent matching the
+  teleradiology reference's Cobalt palette; Fraunces → Space Grotesk (now
+  Login-only) with Inter as the app-shell's only body/heading voice; radius
+  scale bumped `rounded-md/lg` → `rounded-xl/2xl`; App.vue rebuilt as a
+  floating collapsible rounded sidebar (was a flush full-height rail); Ledger
+  Row / hairline-exhibit panels boxed into `rounded-2xl` bordered surfaces
+  across Projects, Issues, Dashboard, Releases, IssueDetails.
 
 ## Exports
 
@@ -167,11 +171,11 @@ Canonical copy lives at `src/tokens.css` (imported first in `src/style.css`).
 ### Tailwind v4 @theme
 ```css
 @theme {
-  --color-dp-paper:   oklch(98.2% 0.004 55);
-  --color-dp-ink:     oklch(20%   0.014 40);
-  --color-dp-accent:  oklch(33%   0.135 15);
-  --font-dp-display:  "Fraunces", serif;
-  --font-dp-body:     "Geist", sans-serif;
+  --color-dp-paper:   oklch(98.5% 0.004 250);
+  --color-dp-ink:     oklch(22%   0.022 258);
+  --color-dp-accent:  oklch(58%   0.2   256);
+  --font-dp-display:  "Space Grotesk", sans-serif;
+  --font-dp-body:     "Inter", sans-serif;
   --font-dp-mono:     "JetBrains Mono", monospace;
 }
 ```
@@ -180,13 +184,13 @@ Canonical copy lives at `src/tokens.css` (imported first in `src/style.css`).
 ```json
 {
   "color": {
-    "paper":  { "$value": "oklch(98.2% 0.004 55)", "$type": "color" },
-    "ink":    { "$value": "oklch(20% 0.014 40)",    "$type": "color" },
-    "accent": { "$value": "oklch(33% 0.135 15)",    "$type": "color" }
+    "paper":  { "$value": "oklch(98.5% 0.004 250)", "$type": "color" },
+    "ink":    { "$value": "oklch(22% 0.022 258)",    "$type": "color" },
+    "accent": { "$value": "oklch(58% 0.2 256)",      "$type": "color" }
   },
   "font": {
-    "display": { "$value": "Fraunces",       "$type": "fontFamily" },
-    "body":    { "$value": "Geist",          "$type": "fontFamily" },
+    "display": { "$value": "Space Grotesk",  "$type": "fontFamily" },
+    "body":    { "$value": "Inter",          "$type": "fontFamily" },
     "mono":    { "$value": "JetBrains Mono", "$type": "fontFamily" }
   }
 }
@@ -196,13 +200,11 @@ Canonical copy lives at `src/tokens.css` (imported first in `src/style.css`).
 The project's existing shadcn tokens in `src/style.css` `:root` are a dark
 set (`--background`, `--card`, `--popover`, `--muted`, `--border`, etc.),
 historically shared by every page. `--primary`, `--ring`, `--chart-1`,
-`--sidebar-primary`, and `--sidebar-ring` were updated in this pass to the
-new oxblood accent (`oklch(0.33 0.135 15)`) — they'd been left at violet-600
-and were leaking into the shadcn `<Skeleton>` component's default
-`bg-primary/10`, the one shadcn primitive that doesn't get a per-usage
-color override anywhere it's used. The rest of the dark set stays
-unchanged: Analytics (the only page using shadcn `<Card>`/`<Select>`)
+`--sidebar-primary`, and `--sidebar-ring` are updated in this pass to the new
+indigo accent (`oklch(0.58 0.2 256)`) so they stay in sync with `--dp-accent`
+rather than drifting back to a retired brand hue. The rest of the dark set
+stays unchanged: Analytics (the only page using shadcn `<Card>`/`<Select>`)
 overrides those per-usage (`bg-[var(--dp-surface)]`, etc.) rather than
 changing the globals. Override locally with `--dp-*` per-usage if a future
-page adopts these components, and check any *other* shadcn primitive
-that's added later for the same unstyled-default leak `<Skeleton>` had.
+page adopts these components, and check any *other* shadcn primitive added
+later for the same unstyled-default leak `<Skeleton>` had.

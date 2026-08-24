@@ -43,9 +43,13 @@ export const useIssuesStore = defineStore("issues", {
       }
     },
 
-    async fetchStats() {
+    // Omit projectId for the global counts (Dashboard/Analytics); pass it to
+    // scope the same four numbers to a single project (Issues page).
+    async fetchStats(projectId) {
       try {
-        const { data } = await axios.get("/api/stats");
+        const { data } = await axios.get("/api/stats", {
+          params: { project_id: projectId || undefined },
+        });
         this.stats = data;
       } catch {
         // non-critical

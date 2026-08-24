@@ -1,3 +1,7 @@
+import laravelIcon from '../assets/platforms/laravel.svg'
+import wordpressIcon from '../assets/platforms/wordpress.svg'
+import phpIcon from '../assets/platforms/php.svg'
+
 // ── Shared constants ──────────────────────────────────────────────────────────
 
 export const PLATFORMS    = ['laravel', 'wordpress', 'php']
@@ -29,7 +33,10 @@ export const statusColor = (s) =>
   ({ unresolved: 'text-red-400', resolved: 'text-emerald-400', ignored: 'text-gray-400' })[s]
   ?? 'text-gray-300'
 
-export const platformIcon  = (p) => ({ laravel: '🔴', wordpress: '🔵', php: '🟣' })[p] ?? '⬜'
+// Real brand marks for the platform badge — the one place a logo, not a
+// lucide glyph, belongs: it's identifying a specific product, not a generic action.
+export const platformIcon = (p) => ({ laravel: laravelIcon, wordpress: wordpressIcon, php: phpIcon })[p] ?? null
+
 export const platformColor = (p) =>
   ({ laravel: 'bg-red-500/10', wordpress: 'bg-blue-500/10', php: 'bg-purple-500/10' })[p]
   ?? 'bg-gray-500/10'

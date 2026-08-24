@@ -1,36 +1,38 @@
 /* Hallmark · tokens — DevPulse locked design system (see design.md)
- * formal/exclusive white register · oxblood/wine accent (hue 15)
- * display: Fraunces · body: Geist · mono outlier: JetBrains Mono
+ * clean/formal app-shell, slate neutrals + maroon-red accent (was indigo,
+ * matching the teleradiology reference's Cobalt theme — the user has since
+ * asked for a maroon-red primary in place of that indigo accent)
+ * display: Space Grotesk (Login only) · body: Inter · mono: JetBrains Mono
  */
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
   /* ── Light workspace ── */
-  --dp-paper:        oklch(98.2% 0.004 55);
-  --dp-surface:      oklch(99.4% 0.002 55);
-  --dp-surface-2:    oklch(95%   0.008 55);
-  --dp-ink:          oklch(20%   0.014 40);
-  --dp-ink-2:        oklch(42%   0.010 40);
-  --dp-ink-3:        oklch(58%   0.008 40);
-  --dp-rule:         oklch(89%   0.006 55);
-  --dp-accent:       oklch(33%   0.135 15);
-  --dp-accent-hover: oklch(28%   0.13  15);
-  --dp-accent-soft:  oklch(94%   0.02  15);
-  --dp-scrim:        oklch(20%   0.02  40 / 45%);
-  --dp-danger:       oklch(51%   0.19  25);
-  --dp-danger-soft:  oklch(96%   0.02  25);
-  --dp-ok:           oklch(48%   0.11  155);
+  --dp-paper:        oklch(98.5% 0.004 250);
+  --dp-surface:      oklch(100%  0     0);
+  --dp-surface-2:    oklch(96.5% 0.008 250);
+  --dp-ink:          oklch(22%   0.022 258);
+  --dp-ink-2:        oklch(34%   0.018 257);
+  --dp-ink-3:        oklch(48%   0.014 256);
+  --dp-rule:         oklch(86%   0.012 252);
+  --dp-accent:       oklch(39%   0.15  29);
+  --dp-accent-hover: oklch(34%   0.15  29);
+  --dp-accent-soft:  oklch(94%   0.025 29);
+  --dp-scrim:        oklch(22%   0.02  258 / 45%);
+  --dp-danger:       oklch(58%   0.2   25);
+  --dp-danger-soft:  oklch(96%   0.03  25);
+  --dp-ok:           oklch(56%   0.14  158);
 
   /* ── Elevated dark surfaces (toast stack, chart tooltip) — deliberate
-       exception: stays dark regardless of page theme, warm-neutral tuned ── */
-  --dp-elevated-bg:     oklch(18% 0.014 40);
+       exception: stays dark regardless of page theme, slate-tuned ── */
+  --dp-elevated-bg:     oklch(22% 0.016 260);
   --dp-elevated-border: oklch(100% 0 0 / 8%);
-  --dp-elevated-title:  oklch(96% 0.01  55);
-  --dp-elevated-body:   oklch(78% 0.02  55);
+  --dp-elevated-title:  oklch(96% 0.006 250);
+  --dp-elevated-body:   oklch(80% 0.012 252);
 
   /* ── Type ── */
-  --dp-font-display: 'Fraunces', ui-serif, Georgia, serif;
-  --dp-font-body:    'Geist', ui-sans-serif, system-ui, sans-serif;
+  --dp-font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --dp-font-body:    'Inter', ui-sans-serif, system-ui, sans-serif;
   --dp-font-mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 
   /* ── Motion ── */

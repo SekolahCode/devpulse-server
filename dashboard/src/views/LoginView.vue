@@ -4,7 +4,7 @@
 
       <!-- Wordmark -->
       <div class="flex flex-col items-center mb-8">
-        <div class="w-9 h-9 rounded-md bg-[var(--dp-accent)] flex items-center justify-center text-base text-white mb-3">⚡</div>
+        <div class="w-9 h-9 rounded-xl bg-[var(--dp-accent)] flex items-center justify-center text-base text-white mb-3">⚡</div>
         <span class="dp-display text-[19px] text-[var(--dp-ink)] tracking-tight">DevPulse</span>
         <p class="text-sm text-[var(--dp-ink-2)] mt-1.5">Enter your admin token to continue</p>
       </div>
@@ -12,7 +12,7 @@
       <!-- Card -->
       <form
         @submit.prevent="submit"
-        class="bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-md px-6 py-7 space-y-5"
+        class="bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-2xl px-6 py-7 space-y-5"
       >
         <div>
           <label class="block text-xs font-medium text-[var(--dp-ink-2)] mb-1.5">Admin Token</label>
@@ -23,7 +23,7 @@
             type="password"
             placeholder="Paste your ADMIN_TOKEN here"
             autocomplete="current-password"
-            class="w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-md px-3.5 py-2.5 text-sm text-[var(--dp-ink)]
+            class="w-full bg-[var(--dp-paper)] border border-[var(--dp-rule)] rounded-xl px-3.5 py-2.5 text-sm text-[var(--dp-ink)]
                    placeholder-[var(--dp-ink-3)] focus:outline-none focus:border-[var(--dp-accent)] focus:ring-2 focus:ring-[var(--dp-accent)]/15 transition-colors"
           />
         </div>
@@ -34,7 +34,7 @@
           type="submit"
           :disabled="!token.trim()"
           class="w-full bg-[var(--dp-accent)] hover:bg-[var(--dp-accent-hover)] active:translate-y-px disabled:opacity-40 disabled:cursor-not-allowed
-                 text-white text-sm font-medium rounded-md py-2.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--dp-accent)]"
+                 text-white text-sm font-medium rounded-xl py-2.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--dp-accent)]"
         >
           Sign in
         </button>
@@ -87,11 +87,10 @@ async function submit() {
 </script>
 
 <style scoped>
-/* Hallmark · macrostructure: centered auth card · genre: modern-minimal (formal/exclusive)
- * theme: DevPulse locked system (design.md) — formal white workspace, oxblood accent
- * display: Fraunces · body: Geist · outlier(mono): JetBrains Mono
- * rebuilt from a standalone hardcoded dark screen onto the shared system —
- * first thing a buyer sees, must not contradict "exclusive/formal"
+/* Hallmark · macrostructure: centered auth card · genre: modern-minimal (clean/formal)
+ * theme: DevPulse locked system (design.md) — slate/maroon workspace (accent moved off the teleradiology-matched indigo per a later request)
+ * display: Space Grotesk (Login-only display moment, matches the reference's own auth/app-shell split)
+ * body: Inter · outlier(mono): JetBrains Mono
  */
 .login-root {
   background: var(--dp-paper);

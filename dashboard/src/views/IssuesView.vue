@@ -1,58 +1,65 @@
 <template>
   <div class="issues-root flex-1 w-full">
-    <div class="max-w-6xl mx-auto px-6 py-8">
+    <div class="px-6 py-8">
 
       <!-- Header -->
       <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div class="flex items-center gap-3">
-          <router-link to="/" class="text-[var(--dp-ink-3)] hover:text-[var(--dp-ink)] text-sm transition-colors">
-            Projects
-          </router-link>
-          <span class="text-[var(--dp-rule)]">/</span>
-          <h1 class="dp-display text-[17px] text-[var(--dp-ink)]">Issues</h1>
-          <span class="text-[var(--dp-rule)]">·</span>
+          <button
+            @click="router.back()"
+            type="button"
+            title="Back"
+            class="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--dp-ink-3)] hover:text-[var(--dp-ink)] hover:bg-[var(--dp-surface-2)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)] shrink-0"
+          >
+            <ArrowLeft :size="16" />
+          </button>
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink as-child>
+                  <router-link to="/projects">Projects</router-link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Issues</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+          <span class="w-px h-4 bg-[var(--dp-rule)]" />
           <router-link
             :to="`/projects/${route.params.id}/releases`"
-            class="text-[13px] text-[var(--dp-ink-3)] hover:text-[var(--dp-accent)] transition-colors flex items-center gap-1"
+            class="text-[13px] text-[var(--dp-ink-3)] hover:text-[var(--dp-accent)] transition-colors flex items-center gap-1.5"
           >
-            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="8" cy="8" r="6"/><line x1="8" y1="5" x2="8" y2="8"/><line x1="8" y1="8" x2="10.5" y2="10.5"/>
-            </svg>
+            <History :size="13" />
             Releases
           </router-link>
         </div>
 
         <!-- Status / view tabs -->
-        <div class="flex items-center bg-[var(--dp-surface-2)] border border-[var(--dp-rule)] rounded-lg p-1 gap-0.5">
+        <div class="flex items-center bg-[var(--dp-surface-2)] border border-[var(--dp-rule)] rounded-xl p-1 gap-0.5">
           <button
             v-for="t in TABS"
             :key="t.value"
             @click="setTab(t.value)"
             :class="tab === t.value ? 'bg-[var(--dp-accent)] text-white' : 'text-[var(--dp-ink-2)] hover:text-[var(--dp-ink)]'"
-            class="px-3 py-1 rounded-md text-xs font-medium capitalize transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
+            class="px-3 py-1 rounded-lg text-xs font-medium capitalize transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
           >
             {{ t.label }}
           </button>
         </div>
       </div>
 
-      <!-- Stats strip — quiet label:value line, no boxed tiles -->
-      <div v-if="store.stats" class="flex flex-wrap items-center gap-x-8 gap-y-2 py-3 mb-5 border-y border-[var(--dp-rule)]">
-        <div class="flex items-baseline gap-2">
-          <span class="text-[10px] text-[var(--dp-ink-3)] uppercase tracking-wide font-medium">Unresolved</span>
-          <span class="dp-mono tabular-nums text-base font-medium text-[var(--dp-danger)]">{{ store.stats.issues.unresolved }}</span>
-        </div>
-        <div class="flex items-baseline gap-2">
-          <span class="text-[10px] text-[var(--dp-ink-3)] uppercase tracking-wide font-medium">New 24 h</span>
-          <span class="dp-mono tabular-nums text-base font-medium text-amber-700">{{ store.stats.issues.new_24h }}</span>
-        </div>
-        <div class="flex items-baseline gap-2">
-          <span class="text-[10px] text-[var(--dp-ink-3)] uppercase tracking-wide font-medium">Regressions</span>
-          <span class="dp-mono tabular-nums text-base font-medium text-orange-700">{{ store.stats.issues.regressions_24h }}</span>
-        </div>
-        <div class="flex items-baseline gap-2">
-          <span class="text-[10px] text-[var(--dp-ink-3)] uppercase tracking-wide font-medium">Events 24 h</span>
-          <span class="dp-mono tabular-nums text-base font-medium text-[var(--dp-accent)]">{{ store.stats.events_24h }}</span>
+      <!-- Stats — bento cards, each with its own read on what the number means -->
+      <div v-if="store.stats" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <div v-for="s in statCards" :key="s.key"
+          class="rounded-2xl border border-[var(--dp-rule)] bg-[var(--dp-surface)] p-4 flex flex-col gap-2">
+          <div class="flex items-center gap-1.5" :class="s.color">
+            <component :is="s.icon" :size="14" />
+            <span class="text-[10px] uppercase tracking-wide font-medium text-[var(--dp-ink-3)]">{{ s.label }}</span>
+          </div>
+          <span class="dp-mono tabular-nums text-2xl font-semibold" :class="s.color">{{ s.value }}</span>
+          <p class="text-[11px] text-[var(--dp-ink-3)] leading-snug">{{ s.story }}</p>
         </div>
       </div>
 
@@ -64,51 +71,79 @@
           @input="onSearch"
           type="text"
           placeholder="Search issues…"
-          class="flex-1 min-w-[10rem] bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-md px-4 py-2.5 text-sm text-[var(--dp-ink)]
+          class="flex-1 min-w-[10rem] bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-xl px-4 py-2.5 text-sm text-[var(--dp-ink)]
                  placeholder-[var(--dp-ink-3)] focus:outline-none focus:border-[var(--dp-accent)] focus:ring-2 focus:ring-[var(--dp-accent)]/15 transition-colors"
         />
-        <div v-else class="flex-1 min-w-[10rem] flex items-center gap-2 bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-md px-4 py-2.5">
+        <div v-else class="flex-1 min-w-[10rem] flex items-center gap-2 bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-xl px-4 py-2.5">
           <span class="text-xs text-[var(--dp-accent)] font-medium">Performance vitals</span>
           <span class="text-[10px] text-[var(--dp-ink-3)]">· Web Core Vitals events</span>
         </div>
-        <select
-          v-model="environment"
-          @change="refetch"
-          class="flex-1 sm:flex-none min-w-[7rem] bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-md px-3 py-2.5 text-sm text-[var(--dp-ink-2)]
-                 focus:outline-none focus:border-[var(--dp-accent)] focus:ring-2 focus:ring-[var(--dp-accent)]/15 transition-colors"
-        >
-          <option value="">All envs</option>
-          <option v-for="env in ENVIRONMENTS" :key="env" :value="env" class="capitalize">{{ env }}</option>
-        </select>
-        <select
-          v-model="release"
-          @change="refetch"
-          class="flex-1 sm:flex-none min-w-[7rem] bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-md px-3 py-2.5 text-sm text-[var(--dp-ink-2)]
-                 focus:outline-none focus:border-[var(--dp-accent)] focus:ring-2 focus:ring-[var(--dp-accent)]/15 transition-colors"
-        >
-          <option value="">All versions</option>
-          <option v-for="r in releases" :key="r.id" :value="r.version">v{{ r.version }}</option>
-        </select>
+        <div class="relative" ref="filterPanelEl">
+          <button type="button" @click="toggleFilters"
+            class="flex items-center gap-2 rounded-xl border border-[var(--dp-rule)] bg-[var(--dp-surface)] px-4 py-2.5 text-sm text-[var(--dp-ink-2)] hover:text-[var(--dp-ink)] transition-colors"
+            :class="{ 'border-[var(--dp-accent)] text-[var(--dp-accent)]': activeFilterCount > 0 }">
+            <SlidersHorizontal :size="14" />
+            Filters
+            <span v-if="activeFilterCount" class="dp-mono text-[10px] font-bold bg-[var(--dp-accent-soft)] text-[var(--dp-accent)] rounded-full px-1.5 py-0.5 tabular-nums">
+              {{ activeFilterCount }}
+            </span>
+            <ChevronDown :size="14" class="transition-transform" :class="{ 'rotate-180': showFilters }" />
+          </button>
+
+          <Transition name="dropdown">
+            <div v-if="showFilters"
+              class="dv-dropdown absolute right-0 top-full mt-1.5 w-64 max-w-[calc(100vw-2rem)] bg-[var(--dp-surface)] border border-[var(--dp-rule)] rounded-xl z-50 p-4 space-y-3 text-left">
+              <div>
+                <label class="dp-label">Environment</label>
+                <Select v-model="environmentModel">
+                  <SelectTrigger class="dp-select-trigger">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent class="bg-[var(--dp-surface)] border-[var(--dp-rule)] text-[var(--dp-ink)]">
+                    <SelectItem value="all" class="dp-select-item">All envs</SelectItem>
+                    <SelectItem v-for="env in ENVIRONMENTS" :key="env" :value="env" class="dp-select-item capitalize">{{ env }}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label class="dp-label">Version</label>
+                <Select v-model="releaseModel">
+                  <SelectTrigger class="dp-select-trigger">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent class="bg-[var(--dp-surface)] border-[var(--dp-rule)] text-[var(--dp-ink)]">
+                    <SelectItem value="all" class="dp-select-item">All versions</SelectItem>
+                    <SelectItem v-for="r in releases" :key="r.id" :value="r.version" class="dp-select-item">v{{ r.version }}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <button v-if="activeFilterCount" @click="clearFilters"
+                class="text-xs text-[var(--dp-ink-3)] hover:text-[var(--dp-ink-2)] transition-colors">
+                Clear filters
+              </button>
+            </div>
+          </Transition>
+        </div>
       </div>
 
       <!-- Bulk action bar -->
       <Transition name="bulk-bar">
         <div
           v-if="selected.size > 0"
-          class="flex items-center gap-3 bg-[var(--dp-accent-soft)] border border-[var(--dp-accent)]/25 rounded-md px-4 py-2.5 mb-3"
+          class="flex items-center gap-3 bg-[var(--dp-accent-soft)] border border-[var(--dp-accent)]/25 rounded-xl px-4 py-2.5 mb-3"
         >
           <span class="text-sm text-[var(--dp-accent)] font-medium">{{ selected.size }} selected</span>
           <div class="flex gap-2 ml-auto">
             <button
               @click="bulkResolve"
-              class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-emerald-500/10 text-emerald-700
+              class="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-700
                      hover:bg-emerald-500/15 transition-colors font-medium"
             >
-              ✓ Resolve
+              Resolve
             </button>
             <button
               @click="bulkIgnore"
-              class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-[var(--dp-surface-2)] text-[var(--dp-ink-2)]
+              class="text-xs px-3 py-1.5 rounded-lg bg-[var(--dp-surface-2)] text-[var(--dp-ink-2)]
                      hover:bg-[var(--dp-rule)] transition-colors"
             >
               Ignore
@@ -117,14 +152,14 @@
               @click="selected = new Set()"
               class="text-xs text-[var(--dp-ink-3)] hover:text-[var(--dp-ink)] px-2 transition-colors"
             >
-              ✕
+              Clear
             </button>
           </div>
         </div>
       </Transition>
 
       <!-- Loading skeleton -->
-      <div v-if="store.loading" class="space-y-px rounded-lg overflow-hidden border border-[var(--dp-rule)]">
+      <div v-if="store.loading" class="space-y-px rounded-2xl overflow-hidden border border-[var(--dp-rule)]">
         <div v-for="i in 5" :key="i" class="h-13 bg-[var(--dp-surface-2)] animate-pulse" />
       </div>
 
@@ -142,44 +177,62 @@
         </p>
       </div>
 
-      <!-- Ledger table — hairline top rule, no boxed panel -->
-      <div v-else class="border-t border-[var(--dp-rule)] overflow-visible">
+      <!-- Boxed table — matches the reference DataTable: rounded-2xl border, washed header -->
+      <div v-else class="overflow-hidden rounded-2xl border border-[var(--dp-rule)] bg-[var(--dp-surface)]">
 
         <!-- Table header — 3 cols on mobile (checkbox/issue/menu), full 6 from md -->
-        <div class="grid grid-cols-[24px_1fr_36px] md:grid-cols-[24px_1fr_80px_80px_96px_36px] gap-0 border-b border-[var(--dp-rule)]
-                    text-[10px] font-semibold text-[var(--dp-ink-3)] uppercase tracking-widest">
-          <div class="flex items-center justify-center py-2">
-            <input
-              type="checkbox"
-              :checked="allSelected"
-              :indeterminate="someSelected"
-              @change="toggleAll"
-              class="w-3 h-3 accent-[var(--dp-accent)] cursor-pointer"
+        <div class="grid grid-cols-[40px_1fr_36px] md:grid-cols-[40px_1fr_80px_80px_96px_36px] gap-0 border-b border-[var(--dp-rule)] bg-[var(--dp-surface-2)]/60
+                    text-xs font-medium text-[var(--dp-ink-3)]">
+          <div class="flex items-center justify-center py-3">
+            <Checkbox
+              :checked="allSelected ? true : (someSelected ? 'indeterminate' : false)"
+              @update:checked="toggleAll"
             />
           </div>
-          <span class="px-4 py-2">Issue</span>
-          <span class="hidden md:block text-center py-2">Priority</span>
-          <span class="hidden md:block text-right pr-3 py-2">Events</span>
-          <span class="hidden md:block text-right pr-3 py-2">Last seen</span>
+          <button type="button" @click="handleSort('title')"
+            class="px-4 py-3 inline-flex items-center gap-1 text-left hover:text-[var(--dp-accent)] transition-colors">
+            Issue
+            <ArrowUp v-if="sortKey === 'title' && sortDirection === 'asc'" :size="12" />
+            <ArrowDown v-else-if="sortKey === 'title' && sortDirection === 'desc'" :size="12" />
+            <ArrowUpDown v-else :size="12" class="text-[var(--dp-rule)]" />
+          </button>
+          <button type="button" @click="handleSort('priority')"
+            class="hidden md:inline-flex items-center justify-center gap-1 py-3 hover:text-[var(--dp-accent)] transition-colors">
+            Priority
+            <ArrowUp v-if="sortKey === 'priority' && sortDirection === 'asc'" :size="12" />
+            <ArrowDown v-else-if="sortKey === 'priority' && sortDirection === 'desc'" :size="12" />
+            <ArrowUpDown v-else :size="12" class="text-[var(--dp-rule)]" />
+          </button>
+          <button type="button" @click="handleSort('event_count')"
+            class="hidden md:inline-flex items-center justify-end gap-1 pr-3 py-3 hover:text-[var(--dp-accent)] transition-colors">
+            Events
+            <ArrowUp v-if="sortKey === 'event_count' && sortDirection === 'asc'" :size="12" />
+            <ArrowDown v-else-if="sortKey === 'event_count' && sortDirection === 'desc'" :size="12" />
+            <ArrowUpDown v-else :size="12" class="text-[var(--dp-rule)]" />
+          </button>
+          <button type="button" @click="handleSort('last_seen')"
+            class="hidden md:inline-flex items-center justify-end gap-1 pr-3 py-3 hover:text-[var(--dp-accent)] transition-colors">
+            Last seen
+            <ArrowUp v-if="sortKey === 'last_seen' && sortDirection === 'asc'" :size="12" />
+            <ArrowDown v-else-if="sortKey === 'last_seen' && sortDirection === 'desc'" :size="12" />
+            <ArrowUpDown v-else :size="12" class="text-[var(--dp-rule)]" />
+          </button>
           <span></span>
         </div>
 
         <!-- Rows -->
         <div class="divide-y divide-[var(--dp-rule)]">
           <div
-            v-for="issue in store.issues"
+            v-for="issue in sortedIssues"
             :key="issue.id"
-            class="grid grid-cols-[24px_1fr_36px] md:grid-cols-[24px_1fr_80px_80px_96px_36px] gap-0 items-center hover:bg-[var(--dp-surface-2)]/60 transition-colors group relative"
-            :class="selected.has(issue.id) ? 'bg-[var(--dp-accent-soft)]/50' : 'bg-[var(--dp-surface)]'"
+            class="grid grid-cols-[40px_1fr_36px] md:grid-cols-[40px_1fr_80px_80px_96px_36px] gap-0 items-center hover:bg-[var(--dp-surface-2)]/60 transition-colors group relative border-l-2"
+            :class="[selected.has(issue.id) ? 'bg-[var(--dp-accent-soft)]/50' : 'bg-[var(--dp-surface)]', levelBorder(issue.level)]"
           >
             <!-- Checkbox -->
-            <div class="flex items-center justify-center py-3.5">
-              <input
-                type="checkbox"
+            <div class="flex items-center justify-center py-3.5" @click.stop>
+              <Checkbox
                 :checked="selected.has(issue.id)"
-                @change="toggleSelect(issue.id)"
-                @click.stop
-                class="w-3 h-3 accent-[var(--dp-accent)] cursor-pointer"
+                @update:checked="toggleSelect(issue.id)"
               />
             </div>
 
@@ -189,9 +242,8 @@
               class="flex flex-col md:flex-row md:items-center gap-1 md:gap-2.5 px-4 py-3.5 min-w-0"
             >
               <div class="flex items-center gap-2.5 min-w-0">
-                <span :class="levelDot(issue.level)" class="w-1.5 h-1.5 rounded-full shrink-0" />
                 <span :class="levelBadge(issue.level)"
-                      class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 hidden sm:inline">
+                      class="text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider shrink-0 hidden sm:inline">
                   {{ issue.level }}
                 </span>
                 <p class="text-[13px] text-[var(--dp-ink)] truncate group-hover:text-[var(--dp-accent)] transition-colors leading-snug">
@@ -199,7 +251,7 @@
                 </p>
                 <span v-if="issue.environment && issue.environment !== 'production'"
                       :class="envBadge(issue.environment)"
-                      class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 hidden md:inline">
+                      class="text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider shrink-0 hidden md:inline">
                   {{ issue.environment }}
                 </span>
               </div>
@@ -238,69 +290,47 @@
             </router-link>
 
             <!-- Ellipsis menu -->
-            <div class="flex items-center justify-center py-3.5 shrink-0 relative" @click.prevent>
-              <button
-                @click.stop="toggleMenu(issue.id)"
-                class="w-6 h-6 flex items-center justify-center rounded text-[var(--dp-ink-3)]
-                       hover:text-[var(--dp-ink)] hover:bg-[var(--dp-surface-2)] transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
-                :class="{ 'opacity-100 text-[var(--dp-ink)] bg-[var(--dp-surface-2)]': openMenu === issue.id }"
-                title="Actions"
-              >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                  <circle cx="8" cy="3" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="8" cy="13" r="1.3"/>
-                </svg>
-              </button>
-
-              <Transition name="dropdown">
-                <div
-                  v-if="openMenu === issue.id"
-                  class="dv-dropdown absolute right-0 top-full mt-1 w-40 bg-[var(--dp-surface)] border border-[var(--dp-rule)]
-                         rounded-lg z-50 overflow-hidden"
-                >
-                  <!-- Resolve -->
+            <div class="flex items-center justify-center py-3.5 shrink-0">
+              <DropdownMenu @update:open="(open) => { if (!open) menuConfirm = null }">
+                <DropdownMenuTrigger as-child>
                   <button
-                    @click.stop="action('resolve', issue.id)"
-                    class="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors text-left"
-                    :class="isPending(issue.id, 'resolve')
-                      ? 'bg-emerald-500/15 text-emerald-700 font-semibold'
-                      : 'text-[var(--dp-ink-2)] hover:bg-emerald-500/10 hover:text-emerald-700'"
+                    class="w-6 h-6 flex items-center justify-center rounded-lg text-[var(--dp-ink-3)]
+                           hover:text-[var(--dp-ink)] hover:bg-[var(--dp-surface-2)] transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)] data-[state=open]:opacity-100 data-[state=open]:text-[var(--dp-ink)] data-[state=open]:bg-[var(--dp-surface-2)]"
+                    title="Actions"
                   >
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="2 8 6 12 14 4"/>
-                    </svg>
+                    <MoreVertical :size="14" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent class="w-44">
+                  <DropdownMenuItem
+                    @select="onMenuSelect($event, 'resolve', issue.id)"
+                    :class="isPending(issue.id, 'resolve') ? 'bg-emerald-500/15 text-emerald-700 font-semibold' : ''"
+                  >
+                    <Check :size="13" class="shrink-0" />
                     {{ isPending(issue.id, 'resolve') ? 'Confirm resolve?' : 'Resolve' }}
-                  </button>
-                  <!-- Ignore -->
-                  <button
-                    @click.stop="action('ignore', issue.id)"
-                    class="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors text-left"
-                    :class="isPending(issue.id, 'ignore')
-                      ? 'bg-red-500/10 text-red-700 font-semibold'
-                      : 'text-[var(--dp-ink-2)] hover:bg-[var(--dp-surface-2)] hover:text-[var(--dp-ink)]'"
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    @select="onMenuSelect($event, 'ignore', issue.id)"
+                    :class="isPending(issue.id, 'ignore') ? 'bg-red-500/10 text-red-700 font-semibold' : ''"
                   >
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                      <circle cx="8" cy="8" r="6"/><line x1="5" y1="5" x2="11" y2="11"/>
-                    </svg>
+                    <X :size="13" class="shrink-0" />
                     {{ isPending(issue.id, 'ignore') ? 'Confirm ignore?' : 'Ignore' }}
-                  </button>
-                  <!-- Cancel pending -->
-                  <div v-if="menuConfirm" class="border-t border-[var(--dp-rule)]">
-                    <button
-                      @click.stop="menuConfirm = null"
-                      class="w-full px-3 py-1.5 text-[11px] text-[var(--dp-ink-3)] hover:text-[var(--dp-ink-2)] transition-colors text-left"
-                    >
+                  </DropdownMenuItem>
+                  <template v-if="isPending(issue.id, 'resolve') || isPending(issue.id, 'ignore')">
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem @select="menuConfirm = null">
                       Cancel
-                    </button>
-                  </div>
-                </div>
-              </Transition>
+                    </DropdownMenuItem>
+                  </template>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
           </div>
         </div>
 
         <!-- Pagination footer -->
-        <div class="px-1 py-3 border-t border-[var(--dp-rule)] flex items-center justify-between gap-4">
+        <div class="px-4 py-3 border-t border-[var(--dp-rule)] flex items-center justify-between gap-4">
 
           <!-- Row count -->
           <span class="dp-mono text-xs text-[var(--dp-ink-3)] tabular-nums shrink-0">
@@ -315,13 +345,11 @@
             <button
               @click="goToPage(store.page - 1)"
               :disabled="store.page <= 1"
-              class="w-7 h-7 flex items-center justify-center rounded-md text-[var(--dp-ink-2)] hover:text-[var(--dp-ink)] hover:bg-[var(--dp-rule)]
+              class="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--dp-ink-2)] hover:text-[var(--dp-ink)] hover:bg-[var(--dp-rule)]
                      disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
               aria-label="Previous page"
             >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="10 4 6 8 10 12"/>
-              </svg>
+              <ChevronLeft :size="14" />
             </button>
 
             <!-- Page numbers -->
@@ -334,9 +362,9 @@
                 v-else
                 @click="goToPage(p)"
                 :class="p === store.page
-                  ? 'bg-[var(--dp-accent)] text-white'
+                  ? 'text-[var(--dp-accent)] font-semibold'
                   : 'text-[var(--dp-ink-2)] hover:text-[var(--dp-ink)] hover:bg-[var(--dp-rule)]'"
-                class="dp-mono w-7 h-7 flex items-center justify-center rounded-md text-xs font-medium transition-colors tabular-nums focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
+                class="dp-mono w-7 h-7 flex items-center justify-center rounded-lg text-xs transition-colors tabular-nums focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
               >
                 {{ p }}
               </button>
@@ -346,13 +374,11 @@
             <button
               @click="goToPage(store.page + 1)"
               :disabled="store.page >= store.totalPages"
-              class="w-7 h-7 flex items-center justify-center rounded-md text-[var(--dp-ink-2)] hover:text-[var(--dp-ink)] hover:bg-[var(--dp-rule)]
+              class="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--dp-ink-2)] hover:text-[var(--dp-ink)] hover:bg-[var(--dp-rule)]
                      disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
               aria-label="Next page"
             >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 4 10 8 6 12"/>
-              </svg>
+              <ChevronRight :size="14" />
             </button>
           </div>
 
@@ -370,11 +396,22 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { onClickOutside } from '@vueuse/core'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import {
+  ArrowUp, ArrowDown, ArrowUpDown, ArrowLeft, History,
+  AlertCircle, Sparkles, RotateCcw, Activity,
+  ChevronLeft, ChevronRight, MoreVertical, Check, X,
+  SlidersHorizontal, ChevronDown,
+} from 'lucide-vue-next'
 import { useIssuesStore } from '../stores/issues'
 import { useToastStore }  from '../stores/toast'
 import { ENVIRONMENTS } from '../composables/useColors'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 
 const route  = useRoute()
 const router = useRouter()
@@ -395,8 +432,8 @@ const levelBadge = (level) =>
   ({ error: 'bg-red-500/10 text-red-700', warning: 'bg-amber-500/10 text-amber-700', info: 'bg-blue-500/10 text-blue-700' })[level]
   ?? 'bg-gray-500/10 text-gray-600'
 
-const levelDot = (level) =>
-  ({ error: 'bg-red-500', warning: 'bg-amber-500', info: 'bg-blue-500' })[level] ?? 'bg-gray-400'
+const levelBorder = (level) =>
+  ({ error: 'border-l-red-500', warning: 'border-l-amber-500', info: 'border-l-blue-500' })[level] ?? 'border-l-transparent'
 
 const priorityBadge = (p) =>
   ({ critical: 'bg-red-500/15 text-red-700', high: 'bg-orange-500/15 text-orange-700',
@@ -415,11 +452,64 @@ const environment = ref(route.query.env         ?? '')
 const release     = ref(route.query.release     ?? '')
 const page        = ref(Number(route.query.page ?? 1))
 const releases    = ref([])
-const openMenu    = ref(null)
 const menuConfirm = ref(null) // { id, type } — pending confirmation for ellipsis action
 const selected    = ref(new Set())
+const showFilters   = ref(false)
+const filterPanelEl = ref(null)
 
 let searchTimer = null
+
+// ── Custom Select filters — reka-ui Select reserves "" internally, so the
+// UI model uses the sentinel "all" and translates to/from the real "" filter value.
+const environmentModel = computed({
+  get: () => environment.value || 'all',
+  set: (v) => { environment.value = v === 'all' ? '' : v; refetch() },
+})
+const releaseModel = computed({
+  get: () => release.value || 'all',
+  set: (v) => { release.value = v === 'all' ? '' : v; refetch() },
+})
+
+// ── Sortable columns — sorts the currently-loaded page only (server already
+// paginates); matches the same client-side sort used on the Projects table.
+const sortKey       = ref(null)
+const sortDirection = ref('asc')
+const PRIORITY_RANK = { critical: 4, high: 3, medium: 2, low: 1 }
+
+function handleSort(key) {
+  sortDirection.value = sortKey.value === key && sortDirection.value === 'asc' ? 'desc' : 'asc'
+  sortKey.value = key
+}
+
+const sortedIssues = computed(() => {
+  if (!sortKey.value) return store.issues
+  const dir = sortDirection.value === 'asc' ? 1 : -1
+
+  return [...store.issues].sort((a, b) => {
+    if (sortKey.value === 'title') return a.title.localeCompare(b.title) * dir
+    if (sortKey.value === 'priority') {
+      return ((PRIORITY_RANK[a.priority] ?? 0) - (PRIORITY_RANK[b.priority] ?? 0)) * dir
+    }
+    if (sortKey.value === 'event_count') return (a.event_count - b.event_count) * dir
+    // last_seen
+    return (new Date(a.last_seen).getTime() - new Date(b.last_seen).getTime()) * dir
+  })
+})
+
+// ── Stats — bento cards ────────────────────────────────────────────────────────
+const statCards = computed(() => {
+  if (!store.stats) return []
+  return [
+    { key: 'unresolved', label: 'Unresolved', icon: AlertCircle, color: 'text-[var(--dp-danger)]',
+      value: store.stats.issues.unresolved, story: 'Open issues waiting on a fix across this project.' },
+    { key: 'new24h', label: 'New 24h', icon: Sparkles, color: 'text-amber-600',
+      value: store.stats.issues.new_24h, story: 'First-seen issues in the last day.' },
+    { key: 'regressions', label: 'Regressions', icon: RotateCcw, color: 'text-orange-600',
+      value: store.stats.issues.regressions_24h, story: 'Previously resolved issues that came back.' },
+    { key: 'events24h', label: 'Events 24h', icon: Activity, color: 'text-[var(--dp-accent)]',
+      value: store.stats.events_24h, story: 'Total error events ingested in the last day.' },
+  ]
+})
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function activeStatus() { return tab.value === 'vitals' ? 'unresolved' : tab.value }
@@ -446,9 +536,8 @@ function fetchIssues() {
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 onMounted(async () => {
-  store.fetchStats()
+  store.fetchStats(route.params.id)
   fetchIssues()
-  document.addEventListener('click',   closeMenu)
   document.addEventListener('keydown', onKeydown)
   try {
     const { data } = await axios.get(`/api/projects/${route.params.id}/releases`)
@@ -457,20 +546,32 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click',   closeMenu)
   document.removeEventListener('keydown', onKeydown)
 })
 
 // ── Keyboard ──────────────────────────────────────────────────────────────────
 function onKeydown(e) {
-  if (e.key === 'Escape') closeMenu()
+  if (e.key !== 'Escape') return
+  showFilters.value = false
 }
 
-// ── Menu ──────────────────────────────────────────────────────────────────────
-function closeMenu()      { openMenu.value = null; menuConfirm.value = null }
-function toggleMenu(id)   {
-  if (openMenu.value === id) { closeMenu() }
-  else { openMenu.value = id; menuConfirm.value = null }
+// ── Filter panel ────────────────────────────────────────────────────────────────
+// vueuse's onClickOutside (not a hand-rolled document listener) — the shadcn
+// Select inside this panel opens on pointerdown and can shift layout (body
+// scroll lock) between mousedown and mouseup, which defeats a naive
+// `.contains(e.target)` check on the plain 'click' event. onClickOutside
+// is hardened against exactly that class of popover interaction.
+function toggleFilters() { showFilters.value = !showFilters.value }
+onClickOutside(filterPanelEl, () => { showFilters.value = false })
+
+const activeFilterCount = computed(() =>
+  (environment.value ? 1 : 0) + (release.value ? 1 : 0)
+)
+
+function clearFilters() {
+  environment.value = ''
+  release.value     = ''
+  refetch()
 }
 function isPending(id, type) {
   return menuConfirm.value?.id === id && menuConfirm.value?.type === type
@@ -478,7 +579,7 @@ function isPending(id, type) {
 
 async function action(type, id) {
   if (isPending(id, type)) {
-    closeMenu()
+    menuConfirm.value = null
     try {
       if (type === 'resolve') await store.resolve(id)
       else                    await store.ignore(id)
@@ -488,6 +589,14 @@ async function action(type, id) {
   } else {
     menuConfirm.value = { id, type }
   }
+}
+
+// First select arms the confirmation and keeps the menu open (preventDefault
+// stops reka-ui's default close-on-select); second select confirms and lets
+// the menu close normally.
+function onMenuSelect(event, type, id) {
+  if (!isPending(id, type)) event.preventDefault()
+  action(type, id)
 }
 
 // ── Tab / filter changes ──────────────────────────────────────────────────────
@@ -588,20 +697,19 @@ function timeAgo(date) {
 </script>
 
 <style scoped>
-/* Hallmark · macrostructure: Ledger Row (shared with ProjectsView) · genre: modern-minimal (formal/exclusive)
- * theme: DevPulse locked system (design.md) — formal white workspace, oxblood accent
- * display: Fraunces · body: Geist · outlier(mono): JetBrains Mono
- * hairline dividers, no boxed table panel — see design.md § Macrostructure family
+/* Hallmark · macrostructure: boxed table (shared with ProjectsView) · genre: modern-minimal (clean/formal)
+ * theme: DevPulse locked system (design.md) — slate/maroon workspace (accent moved off the teleradiology-matched indigo per a later request)
+ * body: Inter · outlier(mono): JetBrains Mono
+ * rows live in a rounded-2xl bordered box — see design.md § Macrostructure family
+ * shared components (Breadcrumb, Select, Checkbox) ported from teleradiology's own
+ * ui/ kit — same reka-ui + lucide-vue-next stack, adapted to --dp-* tokens
+ * stats: bento cards, not a flat label:value strip · sort: client-side on the
+ * currently-loaded page, same convention as ProjectsView's sortable headers
  */
 .issues-root {
   background: var(--dp-paper);
   font-family: var(--dp-font-body);
   color: var(--dp-ink);
-}
-
-.dp-display {
-  font-family: var(--dp-font-display);
-  letter-spacing: -0.01em;
 }
 
 .dp-mono {
@@ -611,6 +719,31 @@ function timeAgo(date) {
 
 .dv-dropdown {
   box-shadow: 0 8px 24px oklch(20% 0.02 40 / 14%);
+}
+
+.dp-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--dp-ink-2);
+  margin-bottom: 0.375rem;
+}
+
+/* shadcn Select styled to match the rest of this filter panel's fields */
+.dp-select-trigger {
+  width: 100%;
+  background: var(--dp-paper);
+  border-color: var(--dp-rule);
+  border-radius: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  height: auto;
+  font-size: 0.875rem;
+  color: var(--dp-ink);
+}
+
+.dp-select-item:focus {
+  background: var(--dp-accent-soft);
+  color: var(--dp-accent);
 }
 
 .dropdown-enter-active { transition: opacity 0.1s ease, transform 0.1s ease; }

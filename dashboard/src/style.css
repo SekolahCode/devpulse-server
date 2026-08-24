@@ -30,9 +30,15 @@ body {
   flex-direction: column;
 }
 
-a {
-  text-decoration: none;
-  color: inherit;
+/* @layer base (not a bare rule) so Tailwind text-color utilities on <a>/
+   router-link elements can actually override this reset — an unlayered rule
+   would otherwise always beat a layered utility regardless of specificity,
+   silently defeating every text-[var(--dp-accent)] applied to a link. */
+@layer base {
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
 }
 
 button {
@@ -122,7 +128,7 @@ input, select, textarea {
   --card-foreground:       oklch(0.932 0.010 278);
   --popover:               oklch(0.115 0.023 278);   /* #1a1a28 */
   --popover-foreground:    oklch(0.932 0.010 278);
-  --primary:               oklch(0.33 0.135 15);      /* oxblood — mirrors --dp-accent */
+  --primary:               oklch(0.39 0.15 29);       /* maroon — mirrors --dp-accent */
   --primary-foreground:    oklch(0.985 0 0);
   --secondary:             oklch(0.115 0.020 278);
   --secondary-foreground:  oklch(0.932 0.010 278);
@@ -133,22 +139,22 @@ input, select, textarea {
   --destructive:           oklch(0.704 0.191 22.2);  /* red-400 */
   --border:                oklch(1 0 0 / 6%);        /* white/6 */
   --input:                 oklch(1 0 0 / 8%);        /* white/8 */
-  --ring:                  oklch(0.33 0.135 15);
+  --ring:                  oklch(0.39 0.15 29);
   /* Chart palette */
-  --chart-1:               oklch(0.33 0.135 15);      /* oxblood */
+  --chart-1:               oklch(0.39 0.15 29);       /* maroon  */
   --chart-2:               oklch(0.640 0.210 25);    /* red     */
   --chart-3:               oklch(0.728 0.160 68);    /* amber   */
   --chart-4:               oklch(0.696 0.170 162);   /* emerald */
-  --chart-5:               oklch(0.627 0.220 264);   /* blue    */
+  --chart-5:               oklch(0.70 0.15 222);     /* sky     */
   /* Sidebar (unused in this app but required by shadcn) */
   --sidebar:               oklch(0.095 0.019 278);
   --sidebar-foreground:    oklch(0.932 0.010 278);
-  --sidebar-primary:       oklch(0.33 0.135 15);
+  --sidebar-primary:       oklch(0.39 0.15 29);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent:        oklch(0.140 0.025 278);
   --sidebar-accent-foreground: oklch(0.932 0.010 278);
   --sidebar-border:        oklch(1 0 0 / 6%);
-  --sidebar-ring:          oklch(0.33 0.135 15);
+  --sidebar-ring:          oklch(0.39 0.15 29);
 }
 
 @layer base {

@@ -18,7 +18,7 @@ use axum::{
 use tracing::Instrument;
 use uuid::Uuid;
 
-pub async fn trace_id_middleware(mut request: Request<Body>, next: Next) -> Response {
+pub async fn trace_id_middleware(request: Request<Body>, next: Next) -> Response {
     // Reuse caller-supplied trace ID or generate a fresh one.
     let trace_id = request
         .headers()
@@ -26,9 +26,6 @@ pub async fn trace_id_middleware(mut request: Request<Body>, next: Next) -> Resp
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string())
         .unwrap_or_else(|| Uuid::new_v4().to_string());
-
-    // Forward the trace ID to downstream handlers via a request extension.
-    request.extensions_mut().insert(TraceId(trace_id.clone()));
 
     // Use .instrument() instead of span.enter() so the span is correctly
     // propagated across .await points in Tokio's multi-threaded runtime.
@@ -42,7 +39,3 @@ pub async fn trace_id_middleware(mut request: Request<Body>, next: Next) -> Resp
 
     response
 }
-
-/// Request extension carrying the resolved trace ID.
-#[derive(Clone)]
-pub struct TraceId(pub String);

@@ -16,7 +16,9 @@ axios.interceptors.response.use(null, (err) => {
   if (err.response?.status === 401) {
     localStorage.removeItem('devpulse_token')
     delete axios.defaults.headers.common['Authorization']
-    router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
+    if (router.currentRoute.value.path !== '/login') {
+      router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
+    }
   }
   return Promise.reject(err)
 })

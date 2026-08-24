@@ -1,82 +1,112 @@
 <template>
-  <!-- Hallmark · shell: N3 side-rail · design-system: design.md · designed-as-app
-       formal white rail chrome, oxblood accent, quiet left-tick active nav
-       (matches app pages) over per-route workspace -->
-  <div class="flex min-h-screen bg-[var(--dp-paper)] text-[var(--dp-ink)]">
+  <!-- Hallmark · shell: floating rounded rail (matches teleradiology's DashboardSidebar)
+       slate/maroon chrome, collapsible, active-tab = text color only (no fill),
+       lucide nav icons — over per-route workspace -->
+  <div class="min-h-screen bg-[var(--dp-paper)]">
 
-    <!-- ── Desktop side rail ─────────────────────────────────────────────── -->
-    <aside class="hidden lg:flex flex-col w-56 shrink-0 sticky top-0 h-screen border-r border-[var(--dp-rule)] bg-[var(--dp-surface)]">
+    <!-- ── Desktop floating sidebar ──────────────────────────────────────── -->
+    <aside
+      class="fixed inset-y-4 left-4 z-30 hidden lg:flex flex-col rounded-2xl border border-[var(--dp-rule)] bg-[var(--dp-paper)]/95 shadow-xl shadow-black/5 ring-1 ring-black/5 backdrop-blur transition-[width] duration-300 ease-out"
+      :class="sidebarOpen ? 'w-56' : 'w-16'"
+    >
+      <!-- Collapse / expand toggle -->
+      <button
+        type="button"
+        @click="sidebarOpen = !sidebarOpen"
+        class="absolute -right-3 top-6 z-40 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--dp-surface)] text-[var(--dp-accent)] shadow-md ring-1 ring-black/5 transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
+        :aria-label="sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'"
+      >
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          class="transition-transform duration-300" :class="sidebarOpen ? '' : 'rotate-180'">
+          <path d="M10 3L5 8l5 5"/>
+        </svg>
+      </button>
 
       <!-- Brand -->
-      <router-link to="/" class="flex items-center gap-2.5 px-5 h-16 shrink-0 focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]">
-        <div class="w-7 h-7 rounded-md bg-[var(--dp-accent)] flex items-center justify-center text-sm text-white shrink-0">
+      <router-link to="/" class="flex items-center pt-5 pb-4 focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
+        :class="sidebarOpen ? 'gap-5 px-5' : 'justify-center gap-0 px-0'">
+        <div class="w-7 h-7 rounded-lg bg-[var(--dp-accent)] flex items-center justify-center text-sm text-white shrink-0">
           ⚡
         </div>
-        <span class="dp-display text-[16px] text-[var(--dp-ink)] tracking-tight">DevPulse</span>
+        <div class="min-w-0 overflow-hidden leading-tight transition-[max-width,opacity] duration-200 ease-out"
+          :class="sidebarOpen ? 'max-w-[10rem] opacity-100 delay-150' : 'max-w-0 opacity-0'">
+          <span class="block truncate text-sm font-semibold text-[var(--dp-ink)] tracking-tight">DevPulse</span>
+        </div>
       </router-link>
 
       <!-- Nav -->
-      <nav class="flex flex-col gap-0.5 px-3 mt-3">
+      <nav class="flex-1 overflow-y-auto pb-4" :class="sidebarOpen ? 'space-y-1 px-3' : 'space-y-2 px-1.5'">
         <router-link to="/"
-          class="flex items-center gap-2.5 pl-3 pr-3 py-2 border-l-2 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
-          :class="isProjectsSection ? 'border-[var(--dp-accent)] text-[var(--dp-ink)] font-medium' : 'border-transparent text-[var(--dp-ink-2)] hover:text-[var(--dp-ink)] hover:bg-[var(--dp-surface-2)]'">
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/>
-            <rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/>
-          </svg>
-          Projects
+          class="group relative flex items-center rounded-xl py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
+          :class="[sidebarOpen ? 'justify-start gap-5 px-3' : 'justify-center gap-0 px-0',
+                   $route.path === '/' ? 'text-[var(--dp-accent)]' : 'text-[var(--dp-ink-2)] hover:text-[var(--dp-accent)]']">
+          <LayoutDashboard :size="18" class="shrink-0" />
+          <span class="min-w-0 flex-1 truncate text-left transition-[max-width,opacity] duration-200 ease-out"
+            :class="sidebarOpen ? 'max-w-[10rem] opacity-100 delay-150' : 'max-w-0 opacity-0'">Dashboard</span>
         </router-link>
-        <router-link to="/dashboard"
-          class="flex items-center gap-2.5 pl-3 pr-3 py-2 border-l-2 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
-          :class="$route.path === '/dashboard' ? 'border-[var(--dp-accent)] text-[var(--dp-ink)] font-medium' : 'border-transparent text-[var(--dp-ink-2)] hover:text-[var(--dp-ink)] hover:bg-[var(--dp-surface-2)]'">
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M2 13.5V8M8 13.5V2.5M14 13.5V6"/>
-          </svg>
-          Analytics
+        <router-link to="/projects"
+          class="group relative flex items-center rounded-xl py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
+          :class="[sidebarOpen ? 'justify-start gap-5 px-3' : 'justify-center gap-0 px-0',
+                   isProjectsSection ? 'text-[var(--dp-accent)]' : 'text-[var(--dp-ink-2)] hover:text-[var(--dp-accent)]']">
+          <FolderKanban :size="18" class="shrink-0" />
+          <span class="min-w-0 flex-1 truncate text-left transition-[max-width,opacity] duration-200 ease-out"
+            :class="sidebarOpen ? 'max-w-[10rem] opacity-100 delay-150' : 'max-w-0 opacity-0'">Projects</span>
+        </router-link>
+        <router-link to="/analytics"
+          class="group relative flex items-center rounded-xl py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
+          :class="[sidebarOpen ? 'justify-start gap-5 px-3' : 'justify-center gap-0 px-0',
+                   $route.path === '/analytics' ? 'text-[var(--dp-accent)]' : 'text-[var(--dp-ink-2)] hover:text-[var(--dp-accent)]']">
+          <BarChart3 :size="18" class="shrink-0" />
+          <span class="min-w-0 flex-1 truncate text-left transition-[max-width,opacity] duration-200 ease-out"
+            :class="sidebarOpen ? 'max-w-[10rem] opacity-100 delay-150' : 'max-w-0 opacity-0'">Analytics</span>
         </router-link>
       </nav>
 
-      <div class="flex-1" />
-
       <!-- Live status + sign out -->
-      <div class="px-5 py-4 border-t border-[var(--dp-rule)] flex items-center justify-between">
-        <div class="flex items-center gap-2 text-xs">
-          <span
-            :class="wsConnected ? 'bg-emerald-500 pulse-dot' : 'bg-red-500'"
-            class="w-1.5 h-1.5 rounded-full inline-block"
-          />
-          <span :class="wsConnected ? 'text-emerald-700' : 'text-red-600'">
-            {{ wsConnected ? 'Live' : 'Disconnected' }}
-          </span>
+      <div class="border-t border-[var(--dp-rule)] p-4">
+        <div class="flex items-center" :class="sidebarOpen ? 'justify-between gap-3' : 'flex-col gap-2'">
+          <div class="flex items-center gap-2 text-xs" :title="wsConnected ? 'Live' : 'Disconnected'">
+            <span
+              :class="wsConnected ? 'bg-emerald-500 pulse-dot' : 'bg-red-500'"
+              class="w-1.5 h-1.5 rounded-full inline-block shrink-0"
+            />
+            <span v-if="sidebarOpen" :class="wsConnected ? 'text-emerald-700' : 'text-red-600'">
+              {{ wsConnected ? 'Live' : 'Disconnected' }}
+            </span>
+          </div>
+          <button
+            v-if="isLoggedIn"
+            @click="logout"
+            class="text-xs text-[var(--dp-ink-3)] hover:text-[var(--dp-ink)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
+            title="Sign out"
+          >
+            {{ sidebarOpen ? 'Sign out' : '⏻' }}
+          </button>
         </div>
-        <button
-          v-if="isLoggedIn"
-          @click="logout"
-          class="text-xs text-[var(--dp-ink-3)] hover:text-[var(--dp-ink)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--dp-accent)]"
-          title="Sign out"
-        >
-          Sign out
-        </button>
       </div>
     </aside>
 
-    <div class="flex-1 min-w-0 flex flex-col">
+    <div class="flex min-h-screen flex-col transition-[margin] duration-300 ease-out" :class="sidebarOpen ? 'lg:ml-64' : 'lg:ml-24'">
 
       <!-- ── Mobile top bar ──────────────────────────────────────────────── -->
-      <header class="lg:hidden sticky top-0 z-40 border-b border-[var(--dp-rule)] bg-[var(--dp-surface)]/90 backdrop-blur-sm">
+      <header class="lg:hidden sticky top-0 z-40 border-b border-[var(--dp-rule)] bg-[var(--dp-paper)]/90 backdrop-blur-sm">
         <div class="px-4 h-14 flex items-center justify-between gap-3">
           <router-link to="/" class="flex items-center gap-2 shrink-0">
-            <div class="w-7 h-7 rounded-md bg-[var(--dp-accent)] flex items-center justify-center text-sm text-white">⚡</div>
-            <span class="dp-display text-[15px] text-[var(--dp-ink)] tracking-tight hidden min-[400px]:inline">DevPulse</span>
+            <div class="w-7 h-7 rounded-lg bg-[var(--dp-accent)] flex items-center justify-center text-sm text-white">⚡</div>
+            <span class="text-[15px] font-semibold text-[var(--dp-ink)] tracking-tight hidden min-[400px]:inline">DevPulse</span>
           </router-link>
 
           <nav class="flex items-center gap-1">
-            <router-link to="/" class="text-xs px-2.5 py-1.5 rounded-md whitespace-nowrap transition-colors"
-              :class="isProjectsSection ? 'text-[var(--dp-ink)] font-medium bg-[var(--dp-surface-2)]' : 'text-[var(--dp-ink-2)] hover:text-[var(--dp-ink)] hover:bg-[var(--dp-surface-2)]'">
+            <router-link to="/" class="text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors"
+              :class="$route.path === '/' ? 'text-[var(--dp-accent)] font-medium' : 'text-[var(--dp-ink-2)] hover:text-[var(--dp-accent)]'">
+              Dashboard
+            </router-link>
+            <router-link to="/projects" class="text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors"
+              :class="isProjectsSection ? 'text-[var(--dp-accent)] font-medium' : 'text-[var(--dp-ink-2)] hover:text-[var(--dp-accent)]'">
               Projects
             </router-link>
-            <router-link to="/dashboard" class="text-xs px-2.5 py-1.5 rounded-md whitespace-nowrap transition-colors"
-              :class="$route.path === '/dashboard' ? 'text-[var(--dp-ink)] font-medium bg-[var(--dp-surface-2)]' : 'text-[var(--dp-ink-2)] hover:text-[var(--dp-ink)] hover:bg-[var(--dp-surface-2)]'">
+            <router-link to="/analytics" class="text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors"
+              :class="$route.path === '/analytics' ? 'text-[var(--dp-accent)] font-medium' : 'text-[var(--dp-ink-2)] hover:text-[var(--dp-accent)]'">
               Analytics
             </router-link>
           </nav>
@@ -113,7 +143,7 @@
         <div
           v-for="t in toastStore.toasts"
           :key="`t-${t.id}`"
-          class="pointer-events-auto w-80 rounded-lg p-3.5 shadow-2xl flex items-start gap-3 cursor-pointer"
+          class="pointer-events-auto w-80 rounded-xl p-3.5 shadow-2xl flex items-start gap-3 cursor-pointer"
           :class="toastStyle(t.type)"
           @click="toastStore.dismiss(t.id)"
         >
@@ -125,7 +155,7 @@
         <div
           v-for="event in liveToasts"
           :key="event.issue_id + event.ts"
-          class="pointer-events-auto w-80 rounded-lg p-3.5 shadow-2xl border"
+          class="pointer-events-auto w-80 rounded-xl p-3.5 shadow-2xl border"
           style="background: var(--dp-elevated-bg); border-color: var(--dp-elevated-border);"
         >
           <div class="flex items-center gap-2 mb-1.5">
@@ -146,8 +176,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { LayoutDashboard, FolderKanban, BarChart3 } from 'lucide-vue-next'
 import axios from 'axios'
 import { useIssuesStore } from './stores/issues'
 import { useToastStore }  from './stores/toast'
@@ -161,10 +192,15 @@ const route      = useRoute()
 const wsConnected = ref(false)
 const liveToasts  = ref([])
 const isLoggedIn  = ref(!!localStorage.getItem('devpulse_token'))
+const sidebarOpen = ref(true)
+
+function checkScreenSize() {
+  sidebarOpen.value = window.innerWidth >= 1024
+}
 
 // Projects section covers the list plus everything reached from it
 const isProjectsSection = computed(() =>
-  route.path === '/' || route.path.startsWith('/projects') || route.path.startsWith('/issues')
+  route.path.startsWith('/projects') || route.path.startsWith('/issues')
 )
 
 function logout() {
@@ -184,6 +220,9 @@ const toastIcon = (type) =>
   ({ error: '✕', success: '✓', info: 'ℹ' })[type] ?? '•'
 
 onMounted(() => {
+  checkScreenSize()
+  window.addEventListener('resize', checkScreenSize)
+
   let delay = 1000
 
   async function connect() {
@@ -232,11 +271,6 @@ onMounted(() => {
 
   connect()
 })
-</script>
 
-<style scoped>
-.dp-display {
-  font-family: var(--dp-font-display);
-  letter-spacing: -0.01em;
-}
-</style>
+onUnmounted(() => window.removeEventListener('resize', checkScreenSize))
+</script>
