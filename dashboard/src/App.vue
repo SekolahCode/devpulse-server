@@ -228,20 +228,15 @@ let reconnectDelay = 1000
 async function connectWs() {
   const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
 
-  // Fetch a short-lived, single-use ticket over the authenticated REST API
-  // rather than putting the long-lived admin token in the WS URL, where it
-  // would land in proxy/access logs and browser history.
-  let ticket = ''
-  try {
-    const { data } = await axios.get('/api/ws-ticket')
-    ticket = data.ticket
-  } catch {
-    // No admin token stored, or the server has none configured (dev mode,
-    // where /ws accepts unauthenticated connections) — fall back and let
-    // the server decide.
-  }
+  // The deployed ws_handler currently checks ?token=<ADMIN_TOKEN> directly
+  // (a ticket-issuing /api/ws-ticket endpoint was never actually shipped to
+  // this route table — calling it 404s to the SPA fallback, which handed
+  // back index.html and produced a literal "?ticket=undefined" query param).
+  // Send the same token already used for the Authorization header instead;
+  // it's empty in dev mode, where the server accepts unauthenticated conns.
+  const token = localStorage.getItem('devpulse_token') ?? ''
 
-  ws = new WebSocket(`${protocol}://${location.host}/ws?ticket=${encodeURIComponent(ticket)}`)
+  ws = new WebSocket(`${protocol}://${location.host}/ws?token=${encodeURIComponent(token)}`)
 
   ws.onopen = () => {
     wsConnected.value = true
