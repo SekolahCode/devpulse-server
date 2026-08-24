@@ -80,6 +80,7 @@ async function submit() {
   // Persist and apply
   localStorage.setItem('devpulse_token', t)
   axios.defaults.headers.common['Authorization'] = `Bearer ${t}`
+  window.dispatchEvent(new Event('devpulse:login'))
 
   const redirect = route.query.redirect || '/'
   router.push(redirect)

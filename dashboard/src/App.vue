@@ -204,6 +204,7 @@ const isProjectsSection = computed(() =>
 )
 
 function logout() {
+  closeWs()
   localStorage.removeItem('devpulse_token')
   delete axios.defaults.headers.common['Authorization']
   isLoggedIn.value = false
@@ -219,58 +220,82 @@ const toastStyle = (type) =>
 const toastIcon = (type) =>
   ({ error: '✕', success: '✓', info: 'ℹ' })[type] ?? '•'
 
+// ── Live WebSocket connection ─────────────────────────────────────────────────
+let ws = null
+let manualClose = false
+let reconnectDelay = 1000
+
+async function connectWs() {
+  const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
+
+  // Fetch a short-lived, single-use ticket over the authenticated REST API
+  // rather than putting the long-lived admin token in the WS URL, where it
+  // would land in proxy/access logs and browser history.
+  let ticket = ''
+  try {
+    const { data } = await axios.get('/api/ws-ticket')
+    ticket = data.ticket
+  } catch {
+    // No admin token stored, or the server has none configured (dev mode,
+    // where /ws accepts unauthenticated connections) — fall back and let
+    // the server decide.
+  }
+
+  ws = new WebSocket(`${protocol}://${location.host}/ws?ticket=${encodeURIComponent(ticket)}`)
+
+  ws.onopen = () => {
+    wsConnected.value = true
+    reconnectDelay = 1000
+  }
+
+  ws.onclose = () => {
+    wsConnected.value = false
+    if (manualClose) { manualClose = false; return }
+    // Don't chase a 401 in a retry loop once the token's gone — the
+    // 'devpulse:login' listener below reconnects once one exists again.
+    if (!localStorage.getItem('devpulse_token')) return
+    setTimeout(connectWs, reconnectDelay)
+    reconnectDelay = Math.min(reconnectDelay * 2, 30_000)
+  }
+
+  ws.onmessage = ({ data }) => {
+    let event
+    try { event = JSON.parse(data) } catch { return }
+    if (event.type !== 'new_event') return
+    store.addLiveEvent(event)
+
+    const toast = { ...event, ts: Date.now() }
+    liveToasts.value.unshift(toast)
+    setTimeout(() => {
+      const idx = liveToasts.value.indexOf(toast)
+      if (idx !== -1) liveToasts.value.splice(idx, 1)
+    }, 5000)
+  }
+}
+
+function closeWs() {
+  if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+    manualClose = true
+    ws.close()
+  }
+}
+
 onMounted(() => {
   checkScreenSize()
   window.addEventListener('resize', checkScreenSize)
 
-  let delay = 1000
+  // Only attempt the handshake once credentials actually exist — otherwise
+  // this always 401s once on a cold, unauthenticated load before the
+  // reconnect backoff quietly recovers it a second later.
+  if (localStorage.getItem('devpulse_token')) connectWs()
 
-  async function connect() {
-    const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
-
-    // Fetch a short-lived, single-use ticket over the authenticated REST API
-    // rather than putting the long-lived admin token in the WS URL, where it
-    // would land in proxy/access logs and browser history.
-    let ticket = ''
-    try {
-      const { data } = await axios.get('/api/ws-ticket')
-      ticket = data.ticket
-    } catch {
-      // No admin token stored, or the server has none configured (dev mode,
-      // where /ws accepts unauthenticated connections) — fall back and let
-      // the server decide.
-    }
-
-    const ws = new WebSocket(`${protocol}://${location.host}/ws?ticket=${encodeURIComponent(ticket)}`)
-
-    ws.onopen = () => {
-      wsConnected.value = true
-      delay = 1000
-    }
-
-    ws.onclose = () => {
-      wsConnected.value = false
-      setTimeout(connect, delay)
-      delay = Math.min(delay * 2, 30_000)
-    }
-
-    ws.onmessage = ({ data }) => {
-      let event
-      try { event = JSON.parse(data) } catch { return }
-      if (event.type !== 'new_event') return
-      store.addLiveEvent(event)
-
-      const toast = { ...event, ts: Date.now() }
-      liveToasts.value.unshift(toast)
-      setTimeout(() => {
-        const idx = liveToasts.value.indexOf(toast)
-        if (idx !== -1) liveToasts.value.splice(idx, 1)
-      }, 5000)
-    }
-  }
-
-  connect()
+  // Fired by LoginView right after a token is saved, so a fresh login
+  // connects immediately instead of waiting on the reconnect backoff.
+  window.addEventListener('devpulse:login', connectWs)
 })
 
-onUnmounted(() => window.removeEventListener('resize', checkScreenSize))
+onUnmounted(() => {
+  window.removeEventListener('resize', checkScreenSize)
+  window.removeEventListener('devpulse:login', connectWs)
+})
 </script>
