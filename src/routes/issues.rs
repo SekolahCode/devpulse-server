@@ -5,7 +5,7 @@ use axum::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 use uuid::Uuid;
-use crate::{errors::AppError, AppState};
+use crate::{errors::AppError, sourcemaps, AppState};
 
 #[derive(Deserialize)]
 pub struct IssueQuery {
@@ -152,15 +152,26 @@ pub async fn get_issue(
     .fetch_all(&state.pg_pool)
     .await?;
 
-    let events_data: Vec<Value> = events.iter().map(|e| json!({
-        "id":          e.id,
-        "payload":     e.payload,
-        "context":     e.context,
-        "environment": e.environment,
-        "breadcrumbs": e.breadcrumbs,
-        "release":     e.release,
-        "created_at":  e.created_at,
-    })).collect();
+    // Resolve minified JS frames against any uploaded source map for the event's release.
+    // A frame with no matching map (nothing uploaded, or non-JS platform) is left untouched.
+    let mut events_data: Vec<Value> = Vec::with_capacity(events.len());
+    for e in &events {
+        let mut payload = e.payload.clone();
+        if let (Some(project_id), Some(release)) = (issue.project_id, &e.release) {
+            if let Some(stacktrace) = payload.pointer_mut("/exception/stacktrace") {
+                sourcemaps::resolve_stacktrace(&state.pg_pool, project_id, release, stacktrace).await;
+            }
+        }
+        events_data.push(json!({
+            "id":          e.id,
+            "payload":     payload,
+            "context":     e.context,
+            "environment": e.environment,
+            "breadcrumbs": e.breadcrumbs,
+            "release":     e.release,
+            "created_at":  e.created_at,
+        }));
+    }
 
     Ok(Json(json!({
         "id":             issue.id,

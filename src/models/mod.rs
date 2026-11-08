@@ -37,6 +37,7 @@ pub struct ExceptionInfo {
 pub struct StackFrame {
     pub file:     Option<String>,
     pub line:     Option<u32>,
+    pub column:   Option<u32>,
     pub function: Option<String>,
     /// Context may be a plain string or a rich source-context object
     /// (e.g. `{"start": 10, "lines": {"10": "...", "11": "..."}}`)

@@ -1,6 +1,7 @@
 use axum::{extract::{Path, State}, Json};
 use rand::{rngs::OsRng, RngCore};
 use serde_json::{json, Value};
+use sqlx::Row;
 use uuid::Uuid;
 use crate::{errors::AppError, AppState};
 
@@ -184,6 +185,57 @@ pub async fn create_release(
         "url":         row.url,
         "deployed_at": row.deployed_at,
     })))
+}
+
+// POST /api/projects/:id/releases/:release/sourcemaps
+// Body: { "artifact_name": "<file string as it appears in stack frames>", "source_map": {...} }
+pub async fn upload_source_map(
+    Path((project_id, release)): Path<(Uuid, String)>,
+    State(state):                State<AppState>,
+    Json(body):                  Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let artifact_name = body["artifact_name"].as_str()
+        .ok_or_else(|| AppError::BadRequest("artifact_name is required".into()))?;
+    let source_map = body.get("source_map")
+        .ok_or_else(|| AppError::BadRequest("source_map is required".into()))?;
+
+    sqlx::query(
+        r#"INSERT INTO source_maps (project_id, release, artifact_name, source_map)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (project_id, release, artifact_name) DO UPDATE SET
+               source_map = EXCLUDED.source_map,
+               created_at = NOW()"#
+    )
+    .bind(project_id)
+    .bind(&release)
+    .bind(artifact_name)
+    .bind(source_map)
+    .execute(&state.pg_pool)
+    .await?;
+
+    Ok(Json(json!({ "uploaded": true, "artifact_name": artifact_name, "release": release })))
+}
+
+// GET /api/projects/:id/releases/:release/sourcemaps
+pub async fn list_source_maps(
+    Path((project_id, release)): Path<(Uuid, String)>,
+    State(state):                State<AppState>,
+) -> Result<Json<Value>, AppError> {
+    let rows = sqlx::query(
+        "SELECT artifact_name, created_at FROM source_maps
+         WHERE project_id = $1 AND release = $2 ORDER BY artifact_name"
+    )
+    .bind(project_id)
+    .bind(&release)
+    .fetch_all(&state.pg_pool)
+    .await?;
+
+    let data: Vec<Value> = rows.iter().map(|r| json!({
+        "artifact_name": r.get::<String, _>("artifact_name"),
+        "created_at":    r.get::<chrono::DateTime<chrono::Utc>, _>("created_at"),
+    })).collect();
+
+    Ok(Json(json!({ "data": data })))
 }
 
 // DELETE /api/projects/:id
