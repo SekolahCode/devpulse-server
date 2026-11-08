@@ -228,15 +228,25 @@ let reconnectDelay = 1000
 async function connectWs() {
   const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
 
-  // The deployed ws_handler currently checks ?token=<ADMIN_TOKEN> directly
-  // (a ticket-issuing /api/ws-ticket endpoint was never actually shipped to
-  // this route table — calling it 404s to the SPA fallback, which handed
-  // back index.html and produced a literal "?ticket=undefined" query param).
-  // Send the same token already used for the Authorization header instead;
-  // it's empty in dev mode, where the server accepts unauthenticated conns.
+  // Prefer a short-lived, single-use ticket from /api/ws-ticket so the
+  // long-lived admin token never lands in the WS URL (proxy/access logs,
+  // browser history). Backends that predate that route answer it with the
+  // SPA fallback (200 + index.html, so no `ticket` field) and still validate
+  // ?token=<ADMIN_TOKEN> — fall back to that whenever no ticket comes back.
+  // The token is empty in dev mode, where the server accepts unauthenticated conns.
   const token = localStorage.getItem('devpulse_token') ?? ''
+  let auth = `token=${encodeURIComponent(token)}`
+  try {
+    const { data } = await axios.get('/api/ws-ticket')
+    if (typeof data?.ticket === 'string' && data.ticket) {
+      auth = `ticket=${encodeURIComponent(data.ticket)}`
+    }
+  } catch {
+    // Network error or 401 (the axios interceptor handles logout) — keep the
+    // ?token= fallback and let the server decide.
+  }
 
-  ws = new WebSocket(`${protocol}://${location.host}/ws?token=${encodeURIComponent(token)}`)
+  ws = new WebSocket(`${protocol}://${location.host}/ws?${auth}`)
 
   ws.onopen = () => {
     wsConnected.value = true

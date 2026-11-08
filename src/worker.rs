@@ -220,19 +220,31 @@ async fn process(job: EventJob, pool: &PgPool, redis_pool: &RedisPool) -> Result
     let is_new        = issue.is_new_row.unwrap_or(false);
     let is_regression = issue.is_regression.unwrap_or(false);
 
-    // 8. Fire alerts on new issue or regression
+    // 8. Fire alerts on new issue or regression.
+    // The event is already committed at this point, so a failure looking up
+    // the project name must not fail the job (it would dead-letter an event
+    // that's already durably persisted, and a manual replay would double-insert
+    // it). Degrade to a fallback name and keep alerting instead.
     if is_new || is_regression {
-        let project = sqlx::query!(
+        let project_name = sqlx::query!(
             "SELECT name FROM projects WHERE id = $1",
             job.project_id
         )
         .fetch_one(pool)
-        .await?;
+        .await
+        .map(|row| row.name)
+        .unwrap_or_else(|e| {
+            tracing::warn!(
+                "Failed to fetch project name for alert context (issue {}): {} — using fallback",
+                issue.id, e
+            );
+            "Unknown project".to_string()
+        });
 
         fire_alerts(pool, AlertContext {
             issue_id:      issue.id,
             project_id:    job.project_id,
-            project_name:  project.name,
+            project_name,
             title:         title.clone(),
             level:         level.clone(),
             is_regression,

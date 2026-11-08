@@ -337,10 +337,11 @@ async fn call_openai(client: &Client, api_key: &str, prompt: &str, model: &Model
 }
 
 async fn call_gemini(client: &Client, api_key: &str, prompt: &str, model: &Model) -> Result<String, String> {
+    // Use the x-goog-api-key header instead of the `?key=` query param so the
+    // key never ends up in URLs (access logs, proxies, request tracing).
     let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
-        model.api_id(),
-        api_key
+        "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
+        model.api_id()
     );
 
     let body = json!({
@@ -350,6 +351,7 @@ async fn call_gemini(client: &Client, api_key: &str, prompt: &str, model: &Model
 
     let resp = client
         .post(&url)
+        .header("x-goog-api-key", api_key)
         .header("content-type", "application/json")
         .json(&body)
         .send()

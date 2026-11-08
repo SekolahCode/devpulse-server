@@ -8,6 +8,7 @@ mod queue;
 mod rate_limit;
 mod retention;
 mod routes;
+mod sourcemaps;
 mod trace_id;
 mod worker;
 mod ws;
@@ -74,7 +75,12 @@ pub struct AppState {
     pub pg_pool:         sqlx::PgPool,
     pub redis_pool:      deadpool_redis::Pool,
     pub redis_url:       String,             // for WS pub/sub dedicated connections
+    /// Per-project ingest rate limit, checked after the API key resolves to a project.
     pub rate_limiter:    Arc<RateLimiter>,
+    /// Per-IP ingest rate limit, checked before the API key is validated — stops an
+    /// attacker from bypassing per-project limiting by rotating garbage API keys
+    /// (each unique key string would otherwise get its own untouched bucket).
+    pub ip_rate_limiter: Arc<RateLimiter>,
     pub http_client:     Client,
     pub anthropic_key:   Option<String>,
     pub openai_key:      Option<String>,
@@ -105,13 +111,15 @@ async fn main() {
         let is_dev   = rust_log.contains("debug") || rust_log.contains("trace");
         if is_dev {
             tracing::warn!(
-                "ADMIN_TOKEN is not set — all protected routes are accessible without authentication. \
-                 Set ADMIN_TOKEN before deploying to production."
+                "ADMIN_TOKEN is not set — the REST API will reject every request (auth::require_admin_token \
+                 fails closed with no token configured), and the /ws live feed will accept unauthenticated \
+                 connections. Set ADMIN_TOKEN to use the dashboard in development."
             );
         } else {
             tracing::error!(
                 "ADMIN_TOKEN is not set. Refusing to start in production mode. \
-                 Set ADMIN_TOKEN=<secret> in your environment, or set RUST_LOG=debug to run without auth in development."
+                 Set ADMIN_TOKEN=<secret> in your environment, or set RUST_LOG=debug to run in development mode \
+                 (note: the REST API still requires ADMIN_TOKEN even in development — only /ws does not)."
             );
             std::process::exit(1);
         }
@@ -134,12 +142,23 @@ async fn main() {
         .create_pool(Some(Runtime::Tokio1))
         .expect("Failed to create Redis pool");
 
-    // ── Rate limiter (Redis-backed, per-API-key) ──────────────────────────────
+    // ── Rate limiters (Redis-backed) ──────────────────────────────────────────
+    // Per-project limit, checked once the API key has resolved to a project.
     let rate_limit = std::env::var("INGEST_RATE_LIMIT")
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(120usize);
     let rate_limiter = Arc::new(RateLimiter::new(redis_pool.clone(), rate_limit, 60));
+
+    // Per-IP limit, checked before the API key is looked up in Postgres — bounds
+    // how many invalid-key ingest requests a single client can throw at the DB.
+    // Deliberately looser than the per-project limit since one IP may front
+    // several legitimate projects (shared egress, corporate NAT, etc).
+    let ip_rate_limit = std::env::var("INGEST_IP_RATE_LIMIT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(rate_limit * 10);
+    let ip_rate_limiter = Arc::new(RateLimiter::new(redis_pool.clone(), ip_rate_limit, 60));
 
     // ── Shared HTTP client (for AI analysis + alerts) ─────────────────────────
     let http_client = Client::builder()
@@ -171,6 +190,7 @@ async fn main() {
         redis_pool:    redis_pool.clone(),
         redis_url:     redis_url.clone(),
         rate_limiter,
+        ip_rate_limiter,
         http_client,
         anthropic_key,
         openai_key,
@@ -208,6 +228,13 @@ async fn main() {
         .route("/api/projects/{id}/releases",      post(routes::projects::create_release))
         // Releases (delete)
         .route("/api/releases/{id}",               delete(routes::projects::delete_release))
+        // Source maps (per release)
+        .route("/api/projects/{id}/releases/{release}/sourcemaps",
+                                                    get(routes::projects::list_source_maps))
+        // Source maps can be several MB (unlike the 64 KB default body limit below).
+        .route("/api/projects/{id}/releases/{release}/sourcemaps",
+            post(routes::projects::upload_source_map)
+                .layer(DefaultBodyLimit::max(10 * 1024 * 1024)))
         // Alerts
         .route("/api/projects/{id}/alerts",        get(routes::projects::list_alerts))
         .route("/api/projects/{id}/alerts",        post(routes::projects::create_alert))
@@ -225,6 +252,8 @@ async fn main() {
         // Stats
         .route("/api/stats",                       get(routes::stats::get_stats))
         .route("/api/stats/chart",                 get(routes::chart::get_chart_stats))
+        // One-time ticket for the /ws handshake (see ws.rs)
+        .route("/api/ws-ticket",                   get(ws::issue_ticket))
         .layer(middleware::from_fn(auth::require_admin_token));
 
     let cors = {
@@ -272,10 +301,13 @@ async fn main() {
     tracing::info!("🚀 DevPulse listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .unwrap();
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .unwrap();
 }
 
 async fn shutdown_signal() {
